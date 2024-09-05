@@ -45,7 +45,7 @@ public class AddCancelAlgoLogic implements AlgoLogic {
             else{
                 return NoAction.NoAction;
             }
-        } else {
+        } else { // why only make a bid 
             BidLevel level = state.getBidAt(0);
             final long price = level.price;
             final long quantity = level.quantity;
