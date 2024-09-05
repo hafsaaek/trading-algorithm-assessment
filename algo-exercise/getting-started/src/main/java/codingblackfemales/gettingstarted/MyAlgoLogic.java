@@ -15,7 +15,7 @@ public class MyAlgoLogic implements AlgoLogic {
     private static final Logger logger = LoggerFactory.getLogger(MyAlgoLogic.class); // to track events, errors, or important information specifically within the MyAlgoLogic class
 
     AddCancelAlgoLogic addCancelAlgoLogic = new AddCancelAlgoLogic();
-    SimpleFileMarketDataProvider marketData = new SimpleFileMarketDataProvider();
+    SimpleFileMarketDataProvider marketData = new SimpleFileMarketDataProvider("src/main/resources/marketdata.txt");
 
     @Override
     public Action evaluate(SimpleAlgoState state) {
