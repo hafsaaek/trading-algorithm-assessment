@@ -28,14 +28,14 @@ public class AddCancelAlgoLogic implements AlgoLogic {
 
         //make sure we have an exit condition...
         if (totalOrderCount > 20) {
-            return NoAction.NoAction;
+            return NoAction.NoAction; // if there are more than 20 hild orders - do nothing 
         }
 
         final var activeOrders = state.getActiveChildOrders();
 
         if (activeOrders.size() > 0) {
 
-            final var option = activeOrders.stream().findFirst();
+            final var option = activeOrders.stream().findFirst(); 
 
             if (option.isPresent()) {
                 var childOrder = option.get();

@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory;
 
 public class MyAlgoLogic implements AlgoLogic {
 
-    private static final Logger logger = LoggerFactory.getLogger(MyAlgoLogic.class);
+    private static final Logger logger = LoggerFactory.getLogger(MyAlgoLogic.class); // to track events, errors, or important information specifically within the MyAlgoLogic class
 
     @Override
     public Action evaluate(SimpleAlgoState state) {
@@ -24,6 +24,8 @@ public class MyAlgoLogic implements AlgoLogic {
          * Add your logic here....
          *
          */
+
+        // You need to account for 3 main functions: 1. Add new orders (queuing according to price-time-priority), 2. Cancel orders 3. Execute and match bids to asks 
 
         return NoAction.NoAction;
     }

@@ -18,6 +18,7 @@ public class PassiveAlgoLogic implements AlgoLogic{
     @Override
     public Action evaluate(SimpleAlgoState state) {
 
+        
         logger.info("[PASSIVEALGO] In Algo Logic....");
 
         final String book = Util.orderBookToString(state);
