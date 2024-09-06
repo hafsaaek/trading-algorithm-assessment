@@ -31,10 +31,10 @@ public class CreateChildOrder implements Action {
 
     @Override
     public void apply(Sequencer sequencer) {
-        final CreateOrderEncoder encoder = new CreateOrderEncoder();
+        final CreateOrderEncoder encoder = new CreateOrderEncoder(); // encoder ensures format is in a friendly format to allow the sequncer to read the data
         final ByteBuffer byteBuffer = ByteBuffer.allocateDirect(1024);
         final UnsafeBuffer directBuffer = new UnsafeBuffer(byteBuffer);
-        final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder();
+        final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder(); // a header for extra info 
 
         encoder.wrapAndApplyHeader(directBuffer, 0, headerEncoder);
         headerEncoder.schemaId(CreateOrderEncoder.SCHEMA_ID);
