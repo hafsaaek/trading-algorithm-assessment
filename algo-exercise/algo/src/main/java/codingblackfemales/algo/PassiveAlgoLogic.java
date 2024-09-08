@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
 
 import static codingblackfemales.action.NoAction.NoAction;
 
-public class PassiveAlgoLogic implements AlgoLogic{
+public class PassiveAlgoLogic implements AlgoLogic{ // wait for the market (an order) to come to your price - wait till the best offer
 
     private static final Logger logger = LoggerFactory.getLogger(PassiveAlgoLogic.class);
 
@@ -28,11 +28,11 @@ public class PassiveAlgoLogic implements AlgoLogic{
         final BidLevel nearTouch = state.getBidAt(0);
 
         long quantity = 75;
-        long price = nearTouch.price;
+        long price = nearTouch.price; 
 
-        //until we have three child orders....
+
         if(state.getChildOrders().size() < 3){
-            //then keep creating a new one
+
             logger.info("[PASSIVEALGO] Have:" + state.getChildOrders().size() + " children, want 3, joining passive side of book with: " + quantity + " @ " + price);
             return new CreateChildOrder(Side.BUY, quantity, price);
         }else{

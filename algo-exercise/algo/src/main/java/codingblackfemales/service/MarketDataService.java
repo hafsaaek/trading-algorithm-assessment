@@ -10,7 +10,7 @@ import messages.marketdata.BookUpdateDecoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class MarketDataService extends MarketDataEventListener {
+public class MarketDataService extends MarketDataEventListener { // updates marketdata when new market data is published? but how?
 
     private static final Logger logger = LoggerFactory.getLogger(MarketDataService.class);
 
