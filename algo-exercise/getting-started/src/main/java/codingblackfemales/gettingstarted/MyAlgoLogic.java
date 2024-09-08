@@ -1,12 +1,18 @@
 package codingblackfemales.gettingstarted;
 
-import codingblackfemales.action.Action;
-import codingblackfemales.action.NoAction;
-import codingblackfemales.algo.AddCancelAlgoLogic;
+import codingblackfemales.action.*;
 import codingblackfemales.algo.AlgoLogic;
-import codingblackfemales.marketdata.impl.SimpleFileMarketDataProvider;
+import codingblackfemales.sotw.ChildOrder;
+import codingblackfemales.sotw.OrderState;
 import codingblackfemales.sotw.SimpleAlgoState;
+import codingblackfemales.sotw.marketdata.AskLevel;
 import codingblackfemales.util.Util;
+import messages.order.Side;
+
+import static codingblackfemales.action.NoAction.NoAction;
+
+import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,31 +20,80 @@ public class MyAlgoLogic implements AlgoLogic {
 
     private static final Logger logger = LoggerFactory.getLogger(MyAlgoLogic.class); // to track events, errors, or important information specifically within the MyAlgoLogic class
 
-    AddCancelAlgoLogic addCancelAlgoLogic = new AddCancelAlgoLogic();
-    SimpleFileMarketDataProvider marketData = new SimpleFileMarketDataProvider("src/main/resources/marketdata.txt");
-
     @Override
     public Action evaluate(SimpleAlgoState state) {
 
-        var orderBookAsString = Util.orderBookToString(state);
+        var orderBookAsString = Util.orderBookToString(state); // create order book
 
         logger.info("[MYALGO] The state of the order book is:\n" + orderBookAsString);
 
-        /********
-         *
-         * Add your logic here....
-         *
-         */
+        /*  
+        You need to account for 3 main functions: 
+            1. Add new orders (queuing according to price-time-priority?)
+                --> Strategy: create orders passively but sell if price > vwap and buy if price < vwap
+            2. Execute and match bids to asks & vice versa by manually injecting a market price to provide an offer Maybe this is for stretch exercise?
+            3.  Cancel orders once executed  
+        
+        Stretch exercise: make money. How? 
+        --> by looking at more than one market data e.g., have an array of market prices you can compare with your bid/ask price and then select the best price from that 
+        */
 
-        // You need to account for 3 main functions: 1. Add new orders (queuing according to price-time-priority), 2. Execute and match bids to asks & viceversa by manually injecting a market price to provide an offer 3.  Cancel orders once executed  
-        // Stretch exercise: make money. How? --> by looking at more than one market data e.g., have an array of market prices you can copmare with your bid/ask price and then select the best price from that 
+        long parentOrderQuantity = 30000; // assume a client given parent order
 
-        if (state.getActiveChildOrders().size() < 20) { // should you use active (filter out cancelled) or getChildOrders 
-            addCancelAlgoLogic.evaluate(state); 
-            // Logic for executing the order - match it with a manually input ask order
-            // need to find where the market data is kept or how to manually add it - hwo would this affect existing codebase - is there an easier way to do this?
+        final AskLevel askPrice = state.getAskAt(0); 
+
+        long quantity = 3000; // fixed child order quantity, assume 10% of parent order
+        long bestAsk = askPrice.price; // // lowest sell price to buy stock
+
+        int totalRequiredChildOrders = (int) (parentOrderQuantity/quantity); // number of required child orders to fill parent order
+        List<ChildOrder> activeChildOrders = state.getActiveChildOrders(); // number of active child orders
+        int remainingOrdersNeeded = totalRequiredChildOrders - activeChildOrders.size(); // to keep track of child orders made
+
+        // 1. If there are enough child orders made - return no action
+        if (activeChildOrders.size() >= totalRequiredChildOrders){
+            logger.info("All child orders have been created for parent order");
+            return NoAction;
+        }
+
+        // 2. If there are missing child orders to fill parent order - create new child order
+        if (activeChildOrders.size() < totalRequiredChildOrders) {
+            logger.info("[ADDCANCELALGO] Adding BID order for" + quantity + "@" + bestAsk + "You now have a total of " + activeChildOrders.size() + " and require " + remainingOrdersNeeded + " more child orders to fill parent order" );
+            return new CreateChildOrder(Side.BUY, quantity, bestAsk);
+        } 
+
+        // 3. If a child order in the list of active orders is filled - then cancel it
+        for (ChildOrder childOrder : activeChildOrders){
+            if (childOrder.getState() == OrderState.FILLED){
+                logger.info("[ADDCANCELALGO] Cancelling order:" + childOrder);
+                return new CancelChildOrder(childOrder);
+            }
         }
 
         return NoAction.NoAction;
+
     }
+
 }
+
+/*
+OLD LOGIC: use VWAP to judge when to sell and buy 
+        double vwap = calculateVWAP();
+
+ if (bestBid < vwap) { // if price < vwap: buy
+            logger.info("[ADDCANCELALGO] Adding BID order for" + quantity + "@" + bestBid + "You now have a total of " + activeChildOrders.size() + " and require " + remainingOrdersNeeded + " more child orders to fill parent order" );
+            return new CreateChildOrder(Side.BUY, quantity, bestBid);
+        }else if (bestAsk > vwap) { // if price > vwap: sell so cancel the buy order 
+            var childOrder = option.get();
+            logger.info("[ADDCANCELALGO] Cancelling order:" + childOrder);
+            return new CancelChildOrder(childOrder);            
+            // The other option is to change the condition to SellPrice > vwap; thus create a sell child order but maybe this is where I need to cancel the order 
+            // logger.info("[ADDCANCELALGO] Adding ASK order for" + quantity + "@" + bestAsk + "You now have a total of " + activeChildOrders + " and require " + remainingOrdersNeeded + " more child orders to fill parent order");
+            // return new CreateChildOrder(Side.SELL, quantity, bestAsk);            
+        } else {
+            logger.info("Do nothing for now until price drops");
+            return NoAction.NoAction;
+        } 
+        private double calculateVWAP() {
+        // throw new UnsupportedOperationException("Unimplemented method 'calculateVWAP'");
+        return 100;
+    }*/
