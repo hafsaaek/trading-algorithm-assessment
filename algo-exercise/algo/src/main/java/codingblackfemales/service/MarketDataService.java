@@ -74,9 +74,8 @@ public class MarketDataService extends MarketDataEventListener { // updates mark
             logger.debug("[ALGO] BID: price:" + price + " quantity:" + quantity);
 
             bookLevel+= 1;
-            bidLength = bookLevel;
-
         }
+        bidLength = bookLevel;
 
         empty(askBook);
 
@@ -93,9 +92,8 @@ public class MarketDataService extends MarketDataEventListener { // updates mark
             logger.debug("[ALGO] ASK: price:" + price + " quantity:" + quantity);
 
             bookLevel+= 1;
-            askLength = bookLevel;
         }
-
+        askLength = bookLevel;
         runTrigger.triggerRun();
     }
 
@@ -117,10 +115,10 @@ public class MarketDataService extends MarketDataEventListener { // updates mark
             logger.debug("[ALGO] ASK: price:" + price + " quantity:" + quantity);
 
             bookLevel+= 1;
-            askLength = bookLevel;
 
         }
 
+        askLength = bookLevel;
         runTrigger.triggerRun();
     }
 
@@ -141,9 +139,9 @@ public class MarketDataService extends MarketDataEventListener { // updates mark
             logger.debug("[ALGO] BID: price:" + price + " quantity:" + quantity);
 
             bookLevel+= 1;
-            bidLength = bookLevel;
         }
 
+        bidLength = bookLevel;
         runTrigger.triggerRun();
     }
 }
