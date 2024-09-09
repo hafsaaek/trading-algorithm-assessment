@@ -1,6 +1,11 @@
 package codingblackfemales.gettingstarted;
 
 import codingblackfemales.algo.AlgoLogic;
+import codingblackfemales.sotw.ChildOrder;
+import codingblackfemales.sotw.OrderState;
+
+import static org.junit.Assert.assertEquals;
+
 import org.junit.Test;
 
 
@@ -30,6 +35,35 @@ public class MyAlgoTest extends AbstractAlgoTest {
         send(createTick());
 
         //simple assert to check we had 3 orders created
-        //assertEquals(container.getState().getChildOrders().size(), 3);
+        assertEquals(container.getState().getChildOrders().size(), 3);
     }
+
+    @Test
+    public void testAnOrderCreated() throws Exception {
+
+        //create a sample market data tick....
+        send(createTick());
+
+        //simple assert to check we had 3 orders created
+        assertEquals(container.getState().getActiveChildOrders().size(), 3);
+    }
+
+
+    @Test
+    public void testFirstOrderCancellation() throws Exception {
+        //create a sample market data tick....
+        send(createTick());
+
+        ChildOrder firstChildOrder = container.getState().getActiveChildOrders().get(0);
+        firstChildOrder.setState(OrderState.FILLED);
+
+        send(createTick());
+
+        assertEquals(container.getState().getActiveChildOrders().size(), 2);
+
+
+    }
+
 }
+
+// ./mvnw clean test --projects algo-exercise/getting-started -Dtest=codingblackfemales.gettingstarted.MyAlgoTest > test-results.txt
