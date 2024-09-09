@@ -59,7 +59,7 @@ public class MyAlgoTest extends AbstractAlgoTest {
 
         send(createTick());
 
-        assertEquals(container.getState().getActiveChildOrders().size(), 2);
+        assertEquals(2, container.getState().getActiveChildOrders().size());
 
 
     }

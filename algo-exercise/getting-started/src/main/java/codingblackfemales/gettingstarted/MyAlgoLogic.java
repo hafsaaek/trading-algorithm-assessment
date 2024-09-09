@@ -64,7 +64,7 @@ public class MyAlgoLogic implements AlgoLogic {
 
 
         // 3. (Will run regardless of 1 & 2) Create a new child order if there is 1 or more ask offers 
-        if (state.getAskLevels() > 0) { 
+        if (remainingOrdersNeeded > 0 && state.getAskLevels() > 0) { 
             logger.info("[MYALGO] Sell order found, finding best ask before placing child order");
             final AskLevel askPrice = state.getAskAt(0);
             long bestAsk = askPrice.price; // // lowest sell price to buy stock
@@ -73,6 +73,7 @@ public class MyAlgoLogic implements AlgoLogic {
 
             logger.info("[MYALGO] Adding BID order for" + quantity + "@" + bestAsk + ": you now have a total of " + activeChildOrders.size() + " and require " + remainingOrdersNeeded + " more child orders to fill parent order");
             return new CreateChildOrder(Side.BUY, quantity, bestAsk);
+
 
         } 
 
