@@ -20,6 +20,16 @@ public class MyAlgoLogic implements AlgoLogic {
 
     private static final Logger logger = LoggerFactory.getLogger(MyAlgoLogic.class); // to track events, errors, or important information specifically within the MyAlgoLogic class
 
+    /*
+        You need to account for 3 main functions:
+            1. Add new orders (queuing according to price-time-priority?)
+                --> Strategy: create orders passively but sell if price > vwap and buy if price < vwap
+            2. Execute and match bids to asks & vice versa by manually injecting a market price to provide an offer Maybe this is for stretch exercise?
+            3.  Cancel orders once executed
+
+        Stretch exercise: make money. How?
+        --> by looking at more than one market data e.g., have an array of market prices you can compare with your bid/ask price and then select the best price from that
+        */
     @Override
     public Action evaluate(SimpleAlgoState state) {
 
@@ -27,49 +37,40 @@ public class MyAlgoLogic implements AlgoLogic {
 
         logger.info("[MYALGO] The state of the order book is:\n" + orderBookAsString);
 
-        /*  
-        You need to account for 3 main functions: 
-            1. Add new orders (queuing according to price-time-priority?)
-                --> Strategy: create orders passively but sell if price > vwap and buy if price < vwap
-            2. Execute and match bids to asks & vice versa by manually injecting a market price to provide an offer Maybe this is for stretch exercise?
-            3.  Cancel orders once executed  
-        
-        Stretch exercise: make money. How? 
-        --> by looking at more than one market data e.g., have an array of market prices you can compare with your bid/ask price and then select the best price from that 
-        */
-
         long parentOrderQuantity = 30000; // assume a client given parent order
-
-        final AskLevel askPrice = state.getAskAt(0); 
-
         long quantity = 3000; // fixed child order quantity, assume 10% of parent order
-        long bestAsk = askPrice.price; // // lowest sell price to buy stock
-
-        int totalRequiredChildOrders = (int) (parentOrderQuantity/quantity); // number of required child orders to fill parent order
+        int totalRequiredChildOrders = (int) (parentOrderQuantity / quantity); // number of required child orders to fill parent order
         List<ChildOrder> activeChildOrders = state.getActiveChildOrders(); // number of active child orders
         int remainingOrdersNeeded = totalRequiredChildOrders - activeChildOrders.size(); // to keep track of child orders made
 
-        // 1. If there are enough child orders made - return no action
-        if (activeChildOrders.size() >= totalRequiredChildOrders){
-            logger.info("All child orders have been created for parent order");
-            return NoAction;
-        }
-
-        // 2. If there are missing child orders to fill parent order - create new child order
-        if (activeChildOrders.size() < totalRequiredChildOrders) {
-            logger.info("[ADDCANCELALGO] Adding BID order for" + quantity + "@" + bestAsk + "You now have a total of " + activeChildOrders.size() + " and require " + remainingOrdersNeeded + " more child orders to fill parent order" );
-            return new CreateChildOrder(Side.BUY, quantity, bestAsk);
-        } 
-
         // 3. If a child order in the list of active orders is filled - then cancel it
-        for (ChildOrder childOrder : activeChildOrders){
-            if (childOrder.getState() == OrderState.FILLED){
+        for (ChildOrder childOrder : activeChildOrders) {
+            if (childOrder.getState() == OrderState.FILLED) {
                 logger.info("[ADDCANCELALGO] Cancelling order:" + childOrder);
                 return new CancelChildOrder(childOrder);
             }
         }
 
-        return NoAction.NoAction;
+
+        // 1. If there are enough child orders made - return no action
+        if (activeChildOrders.size() >= totalRequiredChildOrders) {
+            logger.info("All child orders have been created for parent order");
+            return NoAction;
+        }
+
+
+        if (state.getAskLevels() > 0) {
+            final AskLevel askPrice = state.getAskAt(0);
+            long bestAsk = askPrice.price; // // lowest sell price to buy stock
+
+            // 2. If there are missing child orders to fill parent order - create new child order
+
+            logger.info("[ADDCANCELALGO] Adding BID order for" + quantity + "@" + bestAsk + ": you now have a total of " + activeChildOrders.size() + " and require " + remainingOrdersNeeded + " more child orders to fill parent order");
+            return new CreateChildOrder(Side.BUY, quantity, bestAsk);
+
+        }
+
+        return NoAction;
 
     }
 
