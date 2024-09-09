@@ -35,7 +35,7 @@ public class SimpleAlgoStateImpl implements SimpleAlgoState {
 
     @Override
     public int getAskLevels() {
-        return marketDataService.getAskLength();
+        return marketDataService.getAskLength(); // returns how many sell orders there ar ein the order book
     }
 
     @Override

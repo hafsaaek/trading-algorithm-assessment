@@ -1,0 +1,105 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ----------------------< codingblackfemales:algo >-----------------------
+[INFO] Building algo 0.01-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- clean:3.2.0:clean (default-clean) @ algo ---
+[INFO] Deleting /Users/hafsaelmi/Desktop/final-project/trading-algorithm-assessment/algo-exercise/algo/target
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ algo ---
+[INFO] skip non existing resourceDirectory /Users/hafsaelmi/Desktop/final-project/trading-algorithm-assessment/algo-exercise/algo/src/main/resources
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ algo ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 40 source files with javac [debug target 17] to target/classes
+[WARNING] system modules path not set in conjunction with -source 17
+[INFO] /Users/hafsaelmi/Desktop/final-project/trading-algorithm-assessment/algo-exercise/algo/src/main/java/codingblackfemales/marketdata/gen/RandomMarketDataGenerator.java: /Users/hafsaelmi/Desktop/final-project/trading-algorithm-assessment/algo-exercise/algo/src/main/java/codingblackfemales/marketdata/gen/RandomMarketDataGenerator.java uses unchecked or unsafe operations.
+[INFO] /Users/hafsaelmi/Desktop/final-project/trading-algorithm-assessment/algo-exercise/algo/src/main/java/codingblackfemales/marketdata/gen/RandomMarketDataGenerator.java: Recompile with -Xlint:unchecked for details.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ algo ---
+[INFO] Copying 2 resources from src/test/resources to target/test-classes
+[INFO] 
+[INFO] --- compiler:3.13.0:testCompile (default-testCompile) @ algo ---
+[INFO] Recompiling the module because of changed dependency.
+[INFO] Compiling 4 source files with javac [debug target 17] to target/test-classes
+[WARNING] system modules path not set in conjunction with -source 17
+[INFO] 
+[INFO] --- surefire:3.2.5:test (default-test) @ algo ---
+[INFO] Using auto detected provider org.apache.maven.surefire.junit4.JUnit4Provider
+[INFO] 
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running codingblackfemales.algo.PassiveAlgoTest
+20:08:31.964 [main] INFO codingblackfemales.sequencer.consumer.LoggingConsumer -- [1] 
+|----ASK-----|
+   101 @ 100
+   200 @ 110
+  5000 @ 115
+|----BID-----|
+    100 @ 98
+    200 @ 95
+    300 @ 91
+
+20:08:31.974 [main] DEBUG codingblackfemales.service.MarketDataService -- [ALGO] BID: price:100 quantity:101
+20:08:31.974 [main] DEBUG codingblackfemales.service.MarketDataService -- [ALGO] BID: price:110 quantity:200
+20:08:31.975 [main] DEBUG codingblackfemales.service.MarketDataService -- [ALGO] BID: price:115 quantity:5000
+20:08:31.975 [main] DEBUG codingblackfemales.service.MarketDataService -- [ALGO] ASK: price:98 quantity:100
+20:08:31.975 [main] DEBUG codingblackfemales.service.MarketDataService -- [ALGO] ASK: price:95 quantity:200
+20:08:31.975 [main] DEBUG codingblackfemales.service.MarketDataService -- [ALGO] ASK: price:91 quantity:300
+20:08:31.976 [main] INFO codingblackfemales.algo.PassiveAlgoLogic -- [PASSIVEALGO] In Algo Logic....
+20:08:31.986 [main] INFO codingblackfemales.algo.PassiveAlgoLogic -- [PASSIVEALGO] Algo Sees Book as:
+|----BID-----||----ASK----|
+   101 @ 100    100 @ 98
+   200 @ 110    200 @ 95
+  5000 @ 115    300 @ 91
+|------------||-----------|
+
+20:08:32.000 [main] INFO codingblackfemales.algo.PassiveAlgoLogic -- [PASSIVEALGO] Have:0 children, want 3, joining passive side of book with: 75 @ 100
+20:08:32.018 [main] INFO codingblackfemales.container.Actioner -- [ALGO] Actioner, sending action:CreateChildOrder(side=BUY,quantity=75,price=100)
+20:08:32.019 [main] INFO codingblackfemales.sequencer.consumer.LoggingConsumer -- [2] [CreateOrder](sbeTemplateId=4|sbeSchemaId=2|sbeSchemaVersion=0|sbeBlockLength=33):instrumentId=0|price=100|quantity=75|side=BUY|orderId=2
+20:08:32.022 [main] INFO codingblackfemales.algo.PassiveAlgoLogic -- [PASSIVEALGO] In Algo Logic....
+20:08:32.023 [main] INFO codingblackfemales.algo.PassiveAlgoLogic -- [PASSIVEALGO] Algo Sees Book as:
+|----BID-----||----ASK----|
+   101 @ 100    100 @ 98
+   200 @ 110    200 @ 95
+  5000 @ 115    300 @ 91
+|------------||-----------|
+
+20:08:32.023 [main] INFO codingblackfemales.algo.PassiveAlgoLogic -- [PASSIVEALGO] Have:1 children, want 3, joining passive side of book with: 75 @ 100
+20:08:32.023 [main] INFO codingblackfemales.container.Actioner -- [ALGO] Actioner, sending action:CreateChildOrder(side=BUY,quantity=75,price=100)
+20:08:32.023 [main] INFO codingblackfemales.sequencer.consumer.LoggingConsumer -- [3] [CreateOrder](sbeTemplateId=4|sbeSchemaId=2|sbeSchemaVersion=0|sbeBlockLength=33):instrumentId=0|price=100|quantity=75|side=BUY|orderId=3
+20:08:32.024 [main] INFO codingblackfemales.algo.PassiveAlgoLogic -- [PASSIVEALGO] In Algo Logic....
+20:08:32.025 [main] INFO codingblackfemales.algo.PassiveAlgoLogic -- [PASSIVEALGO] Algo Sees Book as:
+|----BID-----||----ASK----|
+   101 @ 100    100 @ 98
+   200 @ 110    200 @ 95
+  5000 @ 115    300 @ 91
+|------------||-----------|
+
+20:08:32.027 [main] INFO codingblackfemales.algo.PassiveAlgoLogic -- [PASSIVEALGO] Have:2 children, want 3, joining passive side of book with: 75 @ 100
+20:08:32.029 [main] INFO codingblackfemales.container.Actioner -- [ALGO] Actioner, sending action:CreateChildOrder(side=BUY,quantity=75,price=100)
+20:08:32.029 [main] INFO codingblackfemales.sequencer.consumer.LoggingConsumer -- [4] [CreateOrder](sbeTemplateId=4|sbeSchemaId=2|sbeSchemaVersion=0|sbeBlockLength=33):instrumentId=0|price=100|quantity=75|side=BUY|orderId=4
+20:08:32.029 [main] INFO codingblackfemales.algo.PassiveAlgoLogic -- [PASSIVEALGO] In Algo Logic....
+20:08:32.030 [main] INFO codingblackfemales.algo.PassiveAlgoLogic -- [PASSIVEALGO] Algo Sees Book as:
+|----BID-----||----ASK----|
+   101 @ 100    100 @ 98
+   200 @ 110    200 @ 95
+  5000 @ 115    300 @ 91
+|------------||-----------|
+
+20:08:32.031 [main] INFO codingblackfemales.algo.PassiveAlgoLogic -- [PASSIVEALGO] Have:3 children, want 3, done.
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.773 s -- in codingblackfemales.algo.PassiveAlgoTest
+[INFO] 
+[INFO] Results:
+[INFO] 
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0
+[INFO] 
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  15.787 s
+[INFO] Finished at: 2024-09-09T20:08:32+01:00
+[INFO] ------------------------------------------------------------------------

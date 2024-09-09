@@ -37,42 +37,51 @@ public class MyAlgoLogic implements AlgoLogic {
 
         logger.info("[MYALGO] The state of the order book is:\n" + orderBookAsString);
 
-        long parentOrderQuantity = 30000; // assume a client given parent order
-        long quantity = 3000; // fixed child order quantity, assume 10% of parent order
+        long parentOrderQuantity = 3000; // assume a client given parent order
+        long quantity = 1000; // fixed child order quantity, assume 10% of parent order
         int totalRequiredChildOrders = (int) (parentOrderQuantity / quantity); // number of required child orders to fill parent order
         List<ChildOrder> activeChildOrders = state.getActiveChildOrders(); // number of active child orders
         int remainingOrdersNeeded = totalRequiredChildOrders - activeChildOrders.size(); // to keep track of child orders made
 
-        // 3. If a child order in the list of active orders is filled - then cancel it
+        // 1. If a child order in the list of active orders is filled - then cancel it
         for (ChildOrder childOrder : activeChildOrders) {
             if (childOrder.getState() == OrderState.FILLED) {
-                logger.info("[ADDCANCELALGO] Cancelling order:" + childOrder);
+                logger.info("[MYALGO] Cancelling order:" + childOrder);
                 return new CancelChildOrder(childOrder);
             }
         }
+        logger.info("[MYALGO] Current active child orders1: " + activeChildOrders.size());
 
 
-        // 1. If there are enough child orders made - return no action
+
+        // 2. If there are enough child orders made - return no action
         if (activeChildOrders.size() >= totalRequiredChildOrders) {
-            logger.info("All child orders have been created for parent order");
+            logger.info("[MYALGO] All child orders have been created for parent order");
             return NoAction;
         }
 
+        logger.info("[MYALGO] Current active child orders2: " + activeChildOrders.size());
 
-        if (state.getAskLevels() > 0) {
+
+        // 3. (Will run regardless of 1 & 2) Create a new child order if there is 1 or more ask offers 
+        if (state.getAskLevels() > 0) { 
+            logger.info("[MYALGO] Sell order found, finding best ask before placing child order");
             final AskLevel askPrice = state.getAskAt(0);
             long bestAsk = askPrice.price; // // lowest sell price to buy stock
 
-            // 2. If there are missing child orders to fill parent order - create new child order
+            // If there are missing child orders to fill parent order - create new child order
 
-            logger.info("[ADDCANCELALGO] Adding BID order for" + quantity + "@" + bestAsk + ": you now have a total of " + activeChildOrders.size() + " and require " + remainingOrdersNeeded + " more child orders to fill parent order");
+            logger.info("[MYALGO] Adding BID order for" + quantity + "@" + bestAsk + ": you now have a total of " + activeChildOrders.size() + " and require " + remainingOrdersNeeded + " more child orders to fill parent order");
             return new CreateChildOrder(Side.BUY, quantity, bestAsk);
 
-        }
+        } 
+
+        logger.info("[MYALGO] Current active child orders3: " + activeChildOrders.size());
 
         return NoAction;
 
-    }
+    } // grep -r askLevels 
+    // ./mvnw clean test --projects algo-exercise/getting-started -Dtest=codingblackfemales.gettingstarted.MyAlgoTest > test-results.txt
 
 }
 
