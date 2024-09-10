@@ -30,6 +30,14 @@ public class MyAlgoLogic implements AlgoLogic {
         Stretch exercise: make money. How?
         --> by looking at more than one market data e.g., have an array of market prices you can compare with your bid/ask price and then select the best price from that
         */
+
+    /**
+     * Few things to think about:
+     *  - when we create new children we never check that we dont go over the initial 1000 quantity:
+     *      - in real world you need to keep track of how much quantity we have open on market but also executed so we dont over execute
+     * @param state
+     * @return
+     */
     @Override
     public Action evaluate(SimpleAlgoState state) {
 
@@ -71,7 +79,7 @@ public class MyAlgoLogic implements AlgoLogic {
 
             // If there are missing child orders to fill parent order - create new child order
 
-            logger.info("[MYALGO] Adding BID order for" + quantity + "@" + bestAsk + ": you now have a total of " + activeChildOrders.size() + " and require " + remainingOrdersNeeded + " more child orders to fill parent order");
+            logger.info("[MYALGO] Adding BID order for: " + quantity + "@" + bestAsk + ": you now have a total of " + activeChildOrders.size() + " and require " + remainingOrdersNeeded + " more child orders to fill parent order");
             return new CreateChildOrder(Side.BUY, quantity, bestAsk);
 
 

@@ -5,6 +5,7 @@ import codingblackfemales.sotw.ChildOrder;
 import codingblackfemales.sotw.OrderState;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 import org.junit.Test;
 
@@ -59,8 +60,13 @@ public class MyAlgoTest extends AbstractAlgoTest {
 
         send(createTick());
 
-        assertEquals(2, container.getState().getActiveChildOrders().size());
+        // a new order would be created by now by logic as it always tries to create 3 orders ...
+        assertEquals(3, container.getState().getActiveChildOrders().size());
 
+        // we look explicitly for canceled orders here
+        var firstCanceledChild = container.getState().getChildOrders().stream().filter(childOrder -> childOrder.getState() == OrderState.CANCELLED).findFirst().orElse(null);
+        assertNotNull(firstCanceledChild);
+        assertEquals(2, firstCanceledChild.getOrderId());
 
     }
 
