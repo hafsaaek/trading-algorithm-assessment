@@ -59,7 +59,8 @@ public class MyAlgoTest extends AbstractAlgoTest {
 
         send(createTick());
 
-        assertEquals(2, container.getState().getActiveChildOrders().size());
+        assertEquals(2, container.getState().getActiveChildOrders().size()); // This would not work - bec the cancelled order would immeidately be replaced by another chidl order - faut found 
+            // now workign as remianing orders counts on 
 
 
     }

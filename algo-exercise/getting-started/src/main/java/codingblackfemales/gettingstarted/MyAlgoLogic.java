@@ -41,7 +41,7 @@ public class MyAlgoLogic implements AlgoLogic {
         long quantity = 1000; // fixed child order quantity, assume 10% of parent order
         int totalRequiredChildOrders = (int) (parentOrderQuantity / quantity); // number of required child orders to fill parent order
         List<ChildOrder> activeChildOrders = state.getActiveChildOrders(); // number of active child orders
-        int remainingOrdersNeeded = totalRequiredChildOrders - activeChildOrders.size(); // to keep track of child orders made
+        int remainingOrdersNeeded = totalRequiredChildOrders - state.getChildOrders().size(); // to keep track of child orders made
 
         // 1. If a child order in the list of active orders is filled - then cancel it
         for (ChildOrder childOrder : activeChildOrders) {
@@ -71,7 +71,7 @@ public class MyAlgoLogic implements AlgoLogic {
 
             // If there are missing child orders to fill parent order - create new child order
 
-            logger.info("[MYALGO] Adding BID order for" + quantity + "@" + bestAsk + ": you now have a total of " + activeChildOrders.size() + " and require " + remainingOrdersNeeded + " more child orders to fill parent order");
+            logger.info("[MYALGO] Adding BID order for: " + quantity + "@" + bestAsk + ": you now have a total of " + activeChildOrders.size() + " and require " + remainingOrdersNeeded + " more child orders to fill parent order");
             return new CreateChildOrder(Side.BUY, quantity, bestAsk);
 
 
