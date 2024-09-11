@@ -65,3 +65,4 @@ while [ "$#" -gt 0 ]; do
 done
 
 echo "All file-specific branches have been processed."
+# git log --format="%H" --name-only --no-merges | awk 'BEGIN {commit=""} /^[a-f0-9]+$/ {commit=$0} /^[^a-f0-9]/ {print commit ": " $0}'
