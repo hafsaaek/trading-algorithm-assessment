@@ -23,7 +23,7 @@ public class MyAlgoBackTest extends AbstractAlgoBackTest {
 
     @Override
     public AlgoLogic createAlgoLogic() {
-        return new MyAlgoLogic();
+        return new OldMyAlgoLogic();
     }
 
     @Test

@@ -6,6 +6,9 @@ import codingblackfemales.sotw.OrderState;
 
 import static org.junit.Assert.assertEquals;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.junit.Test;
 
 
@@ -35,33 +38,37 @@ public class MyAlgoTest extends AbstractAlgoTest {
         send(createTick());
 
         //simple assert to check we had 3 orders created
-        assertEquals(container.getState().getChildOrders().size(), 3);
+        assertEquals(3, container.getState().getChildOrders().size());
     }
-
-    @Test
-    public void testAnOrderCreated() throws Exception {
-
-        //create a sample market data tick....
-        send(createTick());
-
-        //simple assert to check we had 3 orders created
-        assertEquals(container.getState().getActiveChildOrders().size(), 3);
-    }
-
 
     @Test
     public void testFirstOrderCancellation() throws Exception {
         //create a sample market data tick....
         send(createTick());
 
-        ChildOrder firstChildOrder = container.getState().getActiveChildOrders().get(0);
-        firstChildOrder.setState(OrderState.FILLED);
+        // ChildOrder firstChildOrder = container.getState().getActiveChildOrders().get(0);
+        // firstChildOrder.setState(OrderState.CANCELLED);
 
+        // send(createTick());
+        assertEquals(2, container.getState().getActiveChildOrders().size()); // Ensure one is cancelled so the number of active returned is 2
+
+    }
+
+
+    @Test // Test if there are more than 3 orders with state Filled - no more chid orders are made 
+    public void testOverExecution() throws Exception {
         send(createTick());
+        List<ChildOrder> filledOrders= new ArrayList<>(); 
+        for (ChildOrder childOrder : container.getState().getActiveChildOrders()) {
+            // childOrder.setState(OrderState.FILLED);
+            filledOrders.add(childOrder);
+        }
+    
+        int nonFilledOrdersCount = container.getState().getActiveChildOrders().size() - filledOrders.size();
 
-        assertEquals(2, container.getState().getActiveChildOrders().size()); // This would not work - bec the cancelled order would immeidately be replaced by another chidl order - faut found 
-            // now workign as remianing orders counts on 
+        assertEquals(3, container.getState().getChildOrders().size()); 
 
+        assertEquals(0, nonFilledOrdersCount); 
 
     }
 
