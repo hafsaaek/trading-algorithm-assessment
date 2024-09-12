@@ -35,7 +35,7 @@ public abstract class AbstractAlgoBackTest extends SequencerTestCase {
 
         final MarketDataChannel marketDataChannel = new MarketDataChannel(sequencer);
         final OrderChannel orderChannel = new OrderChannel(sequencer);
-        final OrderBook book = new OrderBook(marketDataChannel, orderChannel);
+        final OrderBook book = new OrderBook(marketDataChannel, orderChannel); // 
 
         final OrderBookInboundOrderConsumer orderConsumer = new OrderBookInboundOrderConsumer(book);
 
