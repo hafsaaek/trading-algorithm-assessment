@@ -2,10 +2,8 @@ package codingblackfemales.gettingstarted;
 
 import java.util.List;
 
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import ch.qos.logback.classic.Logger;
-import ch.qos.logback.classic.pattern.Util;
 import codingblackfemales.action.Action;
 import codingblackfemales.action.CancelChildOrder;
 import codingblackfemales.action.CreateChildOrder;
@@ -15,6 +13,7 @@ import codingblackfemales.sotw.ChildOrder;
 import codingblackfemales.sotw.SimpleAlgoState;
 import codingblackfemales.sotw.marketdata.AskLevel;
 import codingblackfemales.sotw.marketdata.BidLevel;
+import codingblackfemales.util.Util;
 import messages.order.Side;
 
 public class StretchAlgoLogic implements AlgoLogic {
@@ -49,12 +48,15 @@ public class StretchAlgoLogic implements AlgoLogic {
             logger.info("[ADDCANCELALGO] Adding BID order for" + quantity + "@" + bestBid + "You now have a total of " + activeChildOrders.size());
             return new CreateChildOrder(Side.BUY, quantity, bestBid);
         }else if (bestAsk > vwap) { // if price > vwap: sell so cancel the buy order 
+            logger.info("[ADDCANCELALGO] Adding a Ask order for" + quantity + "@" + bestAsk + "You now have a total of " + activeChildOrders.size()); // log according to each side - get
+            return new CreateChildOrder(Side.BUY, quantity, bestBid);
          
         } else {
             logger.info("Do nothing for now until market stabilises?");
             return NoAction.NoAction;
         } 
     }
+
         private double calculateVWAP() {
         throw new UnsupportedOperationException("Unimplemented method 'calculateVWAP'");
         }

@@ -96,7 +96,40 @@ public class OldMyAlgoLogic implements AlgoLogic {
     } // grep -r askLevels 
     // ./mvnw clean test --projects algo-exercise/getting-started -Dtest=codingblackfemales.gettingstarted.MyAlgoTest > test-results.txt
 
-}
+} 
+//  // 1. Create a child order if total orders < 3
+//  if (totalOrderCount < 3 && state.getAskLevels() > 0) {
+//     logger.info("[MYALGO] Finding best bid before placing child order");
+//     final BidLevel bidPrice = state.getBidAt(0);
+//     long bestBid = bidPrice.price;
+
+//     logger.info("[MYALGO] Adding BID order for: " + quantity + "@" + bestBid + ": you now have a total of " + activeOrderCount + " active orders.");
+
+//     return new CreateChildOrder(Side.BUY, quantity, bestBid);
+// }
+
+// logger.info("[MYALGO] Current active child orders after creation: " + activeOrderCount);
+
+
+// // 2. Cancel the first child order if there are 3 active orders and total order count is 3
+// if (totalOrderCount == 3 && activeOrderCount == 3) {
+//     final var option = activeChildOrders.stream().findFirst();
+//     if (option.isPresent()) {
+//         var childOrder = option.get();
+//         logger.info("[MYALGO] Cancelling order: " + childOrder);
+//         return new CancelChildOrder(childOrder);
+//     }
+// }
+// logger.info("[MYALGO] Current active child orders after cancellation: " + activeOrderCount);
+
+
+// // 3. End the program when 3 child orders have been created
+// if (totalOrderCount == 3) {
+//     logger.info("[MYALGO] Total of 3 child orders created. No further action required.");
+//     return NoAction.NoAction;
+// }
+// logger.info("[MYALGO] Current active child orders after creating 3 total orders: " + activeOrderCount);
+
 
 /*
 OLD LOGIC: use VWAP to judge when to sell and buy 
