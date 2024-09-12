@@ -6,7 +6,6 @@ import codingblackfemales.action.CreateChildOrder;
 import codingblackfemales.action.NoAction;
 import codingblackfemales.algo.AlgoLogic;
 import codingblackfemales.sotw.ChildOrder;
-import codingblackfemales.sotw.OrderState;
 import codingblackfemales.sotw.SimpleAlgoState;
 import codingblackfemales.sotw.marketdata.BidLevel;
 import codingblackfemales.util.Util;
