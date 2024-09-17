@@ -4,6 +4,7 @@ import codingblackfemales.algo.AlgoLogic;
 import codingblackfemales.sotw.ChildOrder;
 import codingblackfemales.sotw.OrderState;
 
+import static java.lang.Math.toIntExact;
 import static org.junit.Assert.assertEquals;
 
 import java.util.ArrayList;
@@ -53,15 +54,60 @@ public class MyAlgoTest extends AbstractAlgoTest {
         firstChildOrder.setState(OrderState.FILLED);
 
         send(createTick()); // re-evaluate the logic
-        assertEquals(2, container.getState().getChildOrders().size()); // Ensure one is cancelled so the number of active returned is 2 - an indirect check because you're asusming other copmonents are workign jsut fine when you haven't tested it
-
-        // check 
+        assertEquals(1, container.getState().getActiveChildOrders().size()); // Ensure one is cancelled so the number of active returned is 2 - an indirect check because you're asusming other copmonents are workign jsut fine when you haven't tested it
 
         assertEquals(OrderState.CANCELLED, container.getState().getChildOrders().get(0).getState()); // Ensure one is cancelled so the number of active returned is 2
+    }
+
+
+
+    @Test 
+    public void testFilledOrderQuantityAccumulation() throws Exception {
+        // Test for totalFilledQuantity & placedQuanity accumulation once an order is filled
+
+        // send a tick i.e. a mock market update to trigger the algorithm
+        send(createTick());
+
+        // mock a case where the first child order is filled by setting the state == filled & manually set it's fileld quanitity
+        ChildOrder firstChildOrder = container.getState().getActiveChildOrders().get(0);
+        firstChildOrder.setState(OrderState.FILLED);
+        firstChildOrder.addFill(100, 10); // does it matter the order of how this is defined?
+
+        // Trigger the algo logic evaluation again by sending a new tick
+        send(createTick());
+
+        long totalFilledQuantity = firstChildOrder.getFilledQuantity();
+        long placedQuanity = firstChildOrder.getQuantity() - firstChildOrder.getFilledQuantity();
+
+        assertEquals(100, totalFilledQuantity);
+        assertEquals(0, placedQuanity);
 
     }
 
-    // Decide where pt put logging 
+    @Test
+    public void testPartialFillTriggersNewOrderForRemainingQuantity() throws Exception {
+        send(createTick());
+
+        ChildOrder partialFilleOrder = container.getState().getActiveChildOrders().get(0);
+        partialFilleOrder.addFill(250, 10); 
+        partialFilleOrder.setState(OrderState.FILLED);
+
+
+        send(createTick());
+        ChildOrder partialNonFilledOrder = container.getState().getActiveChildOrders().get(0);
+
+
+        assertEquals(250,partialFilleOrder.getFilledQuantity()); // check 250 shares have been bought
+        assertEquals(OrderState.CANCELLED, partialFilleOrder.getState()); 
+
+        // check another order with amount 50 has been put on the market with 0 filled quantity
+        assertEquals(0,partialNonFilledOrder.getFilledQuantity()); 
+        assertEquals(50,partialNonFilledOrder.getQuantity());
+
+    }
+
+
+
 
 
     // @Test // Test if there are more than 3 orders with state Filled - no more chid orders are made 
@@ -88,3 +134,4 @@ public class MyAlgoTest extends AbstractAlgoTest {
 // patial orders
 // states - 
 // hit every lien in the logic 
+// tip: if you keep seeing errors such as " The public type MessageHeaderDecoder must be defined in its own file" - this is porbably because there are several compiled java classes of the same file e.g. DefaultSequencer 3 and DefaultSequencer 2- clean install using maven to refresh the project (mvn clean install) - best to commentout any tests that might not be workign to not disrupt the build
