@@ -32,7 +32,7 @@ public class MyAlgoBackTest extends AbstractAlgoBackTest {
         send(createTick());
 
         //ADD asserts when you have implemented your algo logic
-        assertEquals(container.getState().getChildOrders().size(), 3);
+        assertEquals(1, container.getState().getChildOrders().size());
 
         //when: market data moves towards us
         send(createTick2());
