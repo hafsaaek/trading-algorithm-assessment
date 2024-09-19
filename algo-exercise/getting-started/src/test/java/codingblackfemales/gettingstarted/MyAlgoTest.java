@@ -131,14 +131,9 @@ public class MyAlgoTest extends AbstractAlgoTest {
     }
 
     @Test
-    public void testForOverExecution() throws Exception {
-      
+    public void testForOverExecution() throws Exception {        
         //create a sample market data tick....
-        // for (int i = 0; i < 3; i++) {
-        //     send(createTick());
-        // }
         send(createTick()); 
-
 
         // somehow calculate the total filled quantity if 3 orders are filled 
         container.getState().getActiveChildOrders().stream().forEach(order -> order.addFill(100, 10));
