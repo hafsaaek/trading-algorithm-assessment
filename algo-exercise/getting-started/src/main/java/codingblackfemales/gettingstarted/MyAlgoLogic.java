@@ -3,6 +3,7 @@ package codingblackfemales.gettingstarted;
 import codingblackfemales.action.Action;
 import codingblackfemales.action.CancelChildOrder;
 import codingblackfemales.action.CreateChildOrder;
+import codingblackfemales.action.NoAction;
 import codingblackfemales.algo.AlgoLogic;
 import codingblackfemales.sotw.ChildOrder;
 import codingblackfemales.sotw.OrderState;
@@ -12,7 +13,9 @@ import messages.order.Side;
 
 import static codingblackfemales.action.NoAction.NoAction;
 
+import java.util.ArrayList;
 import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,58 +30,62 @@ public class MyAlgoLogic implements AlgoLogic {
 
         logger.info("[MYALGO] The state of the order book is:\n" + orderBookAsString);
 
-        // Parametrs
+        /********
+        * Trading Algorithm Logic:
+            * 1. Maintain 3 active child orders, each for 100 shares, to fill a parent order of 300 shares.
+            * 2. Create new child orders if active orders are less than 3.
+            * 3. Cancel the oldest active order when there are 3 or more active orders.
+            * 4. Stop placing new orders if:
+            *    - Total filled quantity reaches 300 shares.
+            *    - More than 12 child orders (active + canceled) have been created.
+            *    - 3 child orders have fully filled.
+            * 5. Handle partial fills by adding their quantities to the total filled amount.         
+        */
+
         long parentOrderQuantity = 300; // assume a client given parent order
         long childOrderQuantity = 100; // fixed child order quantity, assume 1/3 of parent order
-        long targetExecutionPrice = 10; // target buy price
+        long targetBuyPrice = 10; // target buy price
+
         List<ChildOrder> allChildOrders = state.getChildOrders(); // list of all child orders (active and non-active)
         List<ChildOrder> activeChildOrders = state.getActiveChildOrders(); // active child orders only (non cancelled ones)
-        long placedQuantity = 0; // sum of all active orders quantity on the market 
+
+        // 1. Prioritise retuning NO action to ensure the porgam checks when to stop before doing anything else
         long totalFilledQuantity = 0; // sum of quanitites of all filled orders
+        List<ChildOrder> filledOrders= new ArrayList<>(); 
 
-        // 1. Cancel an order once it's entire quantty (100) has been executed/filled
-        for (ChildOrder activeChildOrder : activeChildOrders) {
+        for(ChildOrder activeChildOrder : activeChildOrders){
             if (activeChildOrder.getState() == OrderState.FILLED || activeChildOrder.getFilledQuantity() > 0) {
-                logger.info("[MYALGO] Cancelling order:" + activeChildOrder);
-                return new CancelChildOrder(activeChildOrder);
-            } 
+                logger.info("[MYALGO] Active Child order" + activeChildOrder + " has filled quanitity:" + activeChildOrder.getFilledQuantity());
+                totalFilledQuantity += activeChildOrder.getFilledQuantity();
+                filledOrders.add(activeChildOrder);
+            }   
+        }
+        // Conditions to stop the program: if 3 orders have been fulled (assuming 3 sets of 100 quanitities) OR maxChildOrders has been created (arbitarty vlaue of 12) OR full parent order has been filled (300) 
+        if(totalFilledQuantity >= parentOrderQuantity || allChildOrders.size() >= 12) {            
+            return NoAction;
         }
 
-        // 2. Switch statment for cumaltively adding up totalFilledQuantity & amomunt of quantity on the market for each child order
-        for (ChildOrder childOrder : allChildOrders) {
-            totalFilledQuantity += childOrder.getFilledQuantity();
-            if (childOrder.getState() == OrderState.ACKED || childOrder.getState() == OrderState.PENDING) {
-                placedQuantity += childOrder.getQuantity() - childOrder.getFilledQuantity();
-            }
-        }
-        logger.info("[MYALGO] Total filled quantity so far: " + totalFilledQuantity);
-        logger.info("[MYALGO] Currently placed quantity in the market: " + placedQuantity);
-    
 
-        // 3. Create a new order once a child order's full quanityt has been executed, check if the child order's full quantity has been filled first 
-        if(totalFilledQuantity < parentOrderQuantity)  {
-            long quanitityLeftToPlace = parentOrderQuantity - totalFilledQuantity; // determines if a new order can be created by checking what has been executed from the original child order quantity
-            if (quanitityLeftToPlace > 0 && activeChildOrders.isEmpty()) { 
-                long newChildOrderQuantity = Math.min(childOrderQuantity, quanitityLeftToPlace);  // Ensure no over-execution
-                // nothign for us to do 
-                logger.info("[MYALGO] Adding BID order for: " + newChildOrderQuantity + "@" + targetExecutionPrice);
-                return new CreateChildOrder(Side.BUY, newChildOrderQuantity, targetExecutionPrice); // Create a full new child order or a partial 
-            } 
+         // 2. If there are active orders more than 3, cancel the oldest order 
+        if (activeChildOrders.size() >= 3) {
+            ChildOrder childOrderToCancel = activeChildOrders.get(0);
+            logger.info("[MYALGO] Cancelling order: " + childOrderToCancel);
+            logger.info("[MYALGO] Order States: " + childOrderToCancel.getState());
+            return new CancelChildOrder(childOrderToCancel);
         }
+
+
+        // 3. Now focus on cancelling child orders
+        if (activeChildOrders.size() < 3 && totalFilledQuantity < parentOrderQuantity && state.getAskLevels() > 0) {
+            logger.info("[MYALGO] Adding BID order for: " + childOrderQuantity + "@" + targetBuyPrice);
+            return new CreateChildOrder(Side.BUY, childOrderQuantity, targetBuyPrice); 
+        }
+
+        // 4. Need to account for partially filled order when creating new orders!
+
 
         logger.info("[MYALGO] No action to take");
         return NoAction;
     }
 
-    // logger.debug(); // for debugging
-    
 }
-
-
-// Testing:
-    // test for quantity <= 300 - never over 300 --> over execution
-    // Cancel logic assumes a child order is filled when all of it's quanitities are filled - test this later! How to account for an order state == filled if ithe order is only partially filled 
-    // Logic flaw: how do we check that the execution price of riendly for partially filled orders??
-
-// Logic summarised:
-    // 1.  

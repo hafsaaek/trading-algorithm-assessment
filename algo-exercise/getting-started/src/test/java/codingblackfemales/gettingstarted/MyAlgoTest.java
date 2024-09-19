@@ -1,17 +1,20 @@
 package codingblackfemales.gettingstarted;
 
+import codingblackfemales.action.Action;
 import codingblackfemales.algo.AlgoLogic;
 import codingblackfemales.sotw.ChildOrder;
 import codingblackfemales.sotw.OrderState;
+import codingblackfemales.action.NoAction;
 
-import static java.lang.Math.toIntExact;
+
 import static org.junit.Assert.assertEquals;
+// import org.junit.jupiter.api.DisplayName;
+import static org.junit.Assert.assertNotNull;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.Test;
-
 
 /**
  * This test is designed to check your algo behavior in isolation of the order book.
@@ -31,107 +34,123 @@ public class MyAlgoTest extends AbstractAlgoTest {
         return new MyAlgoLogic();
     }
 
+    /*
+     * Tests:
+        1. Ensure only 12 max orders are created DONE
+        2. Ensure 3 orders are on the market (state active) unless 12 are created DONE
+        3. Once 3 orders are created (active) - the oldest order is cancelled DONE
+        4. For 12 orders created, only 3 are acive and 9 are order state cancelled DONE
+        5. Program stops after 12 orders are created i.e. returns NO action DONE
+        6. Program stops after totalFilledQuantitity == ParentOrderQuantity i.e. returns NO action 
+        7. No new orders are created after totalFilledQuantitity == ParentOrderQuantity i.e. ensure totalFilledQuantitity is never > ParentOrderQuantity
+        8. For a partially filled order --> remaining quantity is created with a new childOrder
+        9. After 12 are created - remaining 3 active orders are cancelled?
+     */
+
+    MyAlgoLogic mylogic = new MyAlgoLogic();
 
     @Test
-    public void testDispatchThroughSequencer() throws Exception {
-
+    // @DisplayName
+    public void testOrdersCreation() throws Exception {
+        int maxOrders = 12;
         //create a sample market data tick....
         send(createTick());
 
-        //simple assert to check we have 1 market
-        assertEquals(1, container.getState().getChildOrders().size());
-        // assert to check for order quantity 
-        assertEquals(100, container.getState().getActiveChildOrders().get(0).getQuantity());
+        //simple assert to check we have created max 12 orders created
+        assertEquals(maxOrders, container.getState().getChildOrders().size());
+    }
+
+    @Test
+    public void testNoMoreThanTwelveChildOrdersCreated() throws Exception {
+        for (int i = 0; i < 12; i++) {
+            send(createTick()); 
+        }
+
+        assertEquals(12, container.getState().getChildOrders().size());
+
+        // Send another tick and assert NoAction is returned after re-triggering the market to further prove no more than 12 orders are created
+        send(createTick());
+        Action returnAction = mylogic.evaluate(container.getState());
+
+        assertEquals(NoAction.class, returnAction.getClass());
 
     }
 
     @Test
-    public void testFirstOrderCancellation() throws Exception {
+    public void testExactlyThreeOrdersActiveOnMarket() throws Exception {
+
         //create a sample market data tick....
         send(createTick());
+        send(createTick());
+        send(createTick());
 
-        ChildOrder firstChildOrder = container.getState().getActiveChildOrders().get(0);
-        firstChildOrder.setState(OrderState.FILLED);
-
-        send(createTick()); // re-evaluate the logic
-        assertEquals(1, container.getState().getActiveChildOrders().size()); // Ensure one is cancelled so the number of active returned is 2 - an indirect check because you're asusming other copmonents are workign jsut fine when you haven't tested it
-
-        assertEquals(OrderState.CANCELLED, container.getState().getChildOrders().get(0).getState()); // Ensure one is cancelled so the number of active returned is 2
+        //simple assert to check we had 3 orders created
+        assertEquals(3, container.getState().getActiveChildOrders().size());
     }
 
 
+    @Test
+    public void testOldestOrderIsCancelled() throws Exception {
 
-    @Test 
-    public void testFilledOrderQuantityAccumulation() throws Exception {
-        // Test for totalFilledQuantity & placedQuanity accumulation once an order is filled
-
-        // send a tick i.e. a mock market update to trigger the algorithm
+        //create a sample market data tick....
+        send(createTick());
+        send(createTick());
+        send(createTick());
         send(createTick());
 
-        // mock a case where the first child order is filled by setting the state == filled & manually set it's fileld quanitity
-        ChildOrder firstChildOrder = container.getState().getActiveChildOrders().get(0);
-        firstChildOrder.setState(OrderState.FILLED);
-        firstChildOrder.addFill(100, 10); // does it matter the order of how this is defined?
+        var firstCanceledChild = container.getState().getChildOrders().stream().filter(childOrder -> childOrder.getState() == OrderState.CANCELLED).findFirst().orElse(null);
 
-        // Trigger the algo logic evaluation again by sending a new tick
-        send(createTick());
+        assertNotNull(firstCanceledChild);
 
-        long totalFilledQuantity = firstChildOrder.getFilledQuantity();
-        long placedQuanity = firstChildOrder.getQuantity() - firstChildOrder.getFilledQuantity();
-
-        assertEquals(100, totalFilledQuantity);
-        assertEquals(0, placedQuanity);
-
+        // assert first cancelled is order ID = 2 as logs show first Order created ID == 2
+        assertEquals(2, firstCanceledChild.getOrderId());
     }
 
     @Test
-    public void testPartialFillTriggersNewOrderForRemainingQuantity() throws Exception {
-        send(createTick());
+    public void testTotalCancelledAndActiveOrders() throws Exception {
 
-        ChildOrder partialFilleOrder = container.getState().getActiveChildOrders().get(0);
-        partialFilleOrder.addFill(250, 10); 
-        partialFilleOrder.setState(OrderState.FILLED);
+        //create a sample market data tick....
+        for (int i = 0; i < 12; i++) {
+            send(createTick());
+        }
 
+        long cancelledOdersCount = container.getState().getChildOrders().stream().filter(order -> order.getState() == OrderState.CANCELLED).count();
 
-        send(createTick());
-        ChildOrder partialNonFilledOrder = container.getState().getActiveChildOrders().get(0);
+        long nonCancelledOrdersCount = container.getState().getChildOrders().stream().filter(order -> order.getState() != OrderState.CANCELLED).count();
 
+        long totalOrders = container.getState().getChildOrders().size();
 
-        assertEquals(250,partialFilleOrder.getFilledQuantity()); // check 250 shares have been bought
-        assertEquals(OrderState.CANCELLED, partialFilleOrder.getState()); 
+        //simple assert to check we had have 3 orders created
+        assertEquals(3, nonCancelledOrdersCount);
 
-        // check another order with amount 50 has been put on the market with 0 filled quantity
-        assertEquals(0,partialNonFilledOrder.getFilledQuantity()); 
-        assertEquals(50,partialNonFilledOrder.getQuantity());
-
+         //simple assert to check we had have 3 orders created
+         assertEquals(9, cancelledOdersCount);
+        
+         //simple assert to check we had 12 orders created
+        assertEquals(12, totalOrders);
     }
 
+    @Test
+    public void testForOverExecution() throws Exception {
+      
+        //create a sample market data tick....
+        // for (int i = 0; i < 3; i++) {
+        //     send(createTick());
+        // }
+        send(createTick()); 
 
 
+        // somehow calculate the total filled quantity if 3 orders are filled 
+        container.getState().getActiveChildOrders().stream().forEach(order -> order.addFill(100, 10));
+        long filledQuantity = container.getState().getChildOrders().stream().mapToLong(ChildOrder::getFilledQuantity).sum(); // sum of filled quantity for all orders
+        Action returnActionOverFilling = mylogic.evaluate(container.getState());
 
 
-    // @Test // Test if there are more than 3 orders with state Filled - no more chid orders are made 
-    // public void testOverExecution() throws Exception {
-    //     send(createTick());
-    //     List<ChildOrder> filledOrders= new ArrayList<>(); 
-    //     for (ChildOrder childOrder : container.getState().getActiveChildOrders()) {
-    //         // childOrder.setState(OrderState.FILLED);
-    //         filledOrders.add(childOrder);
-    //     }
-    
-    //     int nonFilledOrdersCount = container.getState().getActiveChildOrders().size() - filledOrders.size();
-
-    //     assertEquals(3, container.getState().getChildOrders().size()); 
-
-    //     assertEquals(0, nonFilledOrdersCount); 
-
-    // }
+        // Send another tick and assert no more orders are created & NoActio is returned
+        send(createTick()); 
+        assertEquals(NoAction.class, returnActionOverFilling.getClass());
+        assertEquals(300, filledQuantity);
+        assertEquals(3, container.getState().getChildOrders().size());  // Ensure no more than 12 orders in total
+    }
 
 }
-
-// ./mvnw clean test --projects algo-exercise/getting-started -Dtest=codingblackfemales.gettingstarted.MyAlgoTest > test-results.txt
-
-// patial orders
-// states - 
-// hit every lien in the logic 
-// tip: if you keep seeing errors such as " The public type MessageHeaderDecoder must be defined in its own file" - this is porbably because there are several compiled java classes of the same file e.g. DefaultSequencer 3 and DefaultSequencer 2- clean install using maven to refresh the project (mvn clean install) - best to commentout any tests that might not be workign to not disrupt the build
