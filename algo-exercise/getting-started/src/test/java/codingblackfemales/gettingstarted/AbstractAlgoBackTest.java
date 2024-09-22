@@ -87,7 +87,7 @@ public abstract class AbstractAlgoBackTest extends SequencerTestCase {
         return directBuffer;
     }
 
-    protected UnsafeBuffer createTick2() {
+    protected UnsafeBuffer createTick2() { // allows for 1 match
         final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder();
         final BookUpdateEncoder encoder = new BookUpdateEncoder();
 
@@ -118,7 +118,7 @@ public abstract class AbstractAlgoBackTest extends SequencerTestCase {
 
         return directBuffer;
     }
-    protected UnsafeBuffer createTick3() {
+    protected UnsafeBuffer createTick3() { // allows for 2 matches
         final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder();
         final BookUpdateEncoder encoder = new BookUpdateEncoder();
 
@@ -150,7 +150,7 @@ public abstract class AbstractAlgoBackTest extends SequencerTestCase {
 
         return directBuffer;
     }
-    protected UnsafeBuffer createTick4() {
+    protected UnsafeBuffer createTick4() {  // allows for 3 matches
         final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder();
         final BookUpdateEncoder encoder = new BookUpdateEncoder();
 
@@ -183,7 +183,7 @@ public abstract class AbstractAlgoBackTest extends SequencerTestCase {
         return directBuffer;
     }
 
-    protected UnsafeBuffer finalMarketTickOverExecution() {
+    protected UnsafeBuffer finalMarketTickOverExecution() {  // allows for 4 matches to test over-execution
         final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder();
         final BookUpdateEncoder encoder = new BookUpdateEncoder();
 

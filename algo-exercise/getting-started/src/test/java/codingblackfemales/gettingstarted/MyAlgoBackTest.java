@@ -8,15 +8,7 @@ import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
-/**
- * This test plugs together all the infrastructure, including the order book (which you can trade against)
- * and the market data feed.
- * If your algo adds orders to the book, they will reflect in your market data coming back from the order book.
- * If you cross the spread (i.e. you BUY an order with a price which is == or > askPrice()) you will match, and receive
- * a fill back into your order from the order book (visible from the algo in the childOrders of the state object).
- * If you cancel the order your child order will show the order status as cancelled in the childOrders of the state object.
- *
- */
+
 public class MyAlgoBackTest extends AbstractAlgoBackTest {
 
     @Override
@@ -71,7 +63,7 @@ public class MyAlgoBackTest extends AbstractAlgoBackTest {
 
         // Check the final state
         assertEquals(1, filledOrdersCount); // One order should be filled
-        assertEquals(100, filledQuantity);
+        assertEquals(100, filledQuantity); // 100 shares have been bought assertion
         assertEquals(4, state.getChildOrders().size()); // Total child orders remain 6
         assertEquals(3, state.getActiveChildOrders().size()); // Total child orders remain 6
     }
@@ -82,7 +74,7 @@ public class MyAlgoBackTest extends AbstractAlgoBackTest {
         send(createTick()); // Creates the initial conditions with no fills
 
         // Send third tick and verify the logic's reaction when the market has an ask that can offer us 2 offers
-        send(createTick3()); // Ensures one order is filled
+        send(createTick3()); // Ensures two orders are filled
         var state = container.getState();
         long filledQuantity = state.getChildOrders().stream().mapToLong(ChildOrder::getFilledQuantity).sum();
 
@@ -91,7 +83,7 @@ public class MyAlgoBackTest extends AbstractAlgoBackTest {
 
         // Check the final state
         assertEquals(2, filledOrdersCount); // Two orders should be filled
-        assertEquals(200, filledQuantity);
+        assertEquals(200, filledQuantity); // 200 shares have been bought assertion
     }
 
     @Test
@@ -99,7 +91,7 @@ public class MyAlgoBackTest extends AbstractAlgoBackTest {
         // Sending first tick should trigger no matches
         send(createTick()); // Creates the initial conditions with no fills
 
-        // Send third tick and verify the logic's reaction when the market has an ask that can offer us 2 offers
+        // Send fourth tick and verify the logic's reaction when the market has an ask that can offer us 3 offers & thus meet parent order
         send(createTick4()); // Ensures one order is filled
 
         long parentOrderQuantity = 300;
@@ -110,8 +102,8 @@ public class MyAlgoBackTest extends AbstractAlgoBackTest {
                 .filter(order -> order.getFilledQuantity() == 100).count();
 
         // Check the final state
-        assertEquals(3, filledOrdersCount); // Two orders should be filled
-        assertEquals(parentOrderQuantity, filledQuantity);
+        assertEquals(3, filledOrdersCount); // Three orders should be filled
+        assertEquals(parentOrderQuantity, filledQuantity); // All 300 shares (parent order) have been bought assertion
     }
 
     @Test
@@ -119,7 +111,7 @@ public class MyAlgoBackTest extends AbstractAlgoBackTest {
         // Sending first tick should trigger no matches
         send(createTick()); // Creates the initial conditions with no fills
 
-        // To test that if another offer with a 100 or 400
+        // To test that if more than 3 orders (max fill-able child orders) is possible
         send(finalMarketTickOverExecution());
         long parentOrderQuantity = 300;
         var state = container.getState();
@@ -129,13 +121,14 @@ public class MyAlgoBackTest extends AbstractAlgoBackTest {
                 .filter(order -> order.getFilledQuantity() == 100).count();
 
         // Check the final state
-        assertEquals(3, filledOrdersCount); // Two orders should be filled
-        assertEquals(parentOrderQuantity, filledQuantity);
+        assertEquals(3, filledOrdersCount); // Three orders should be filled
+        assertEquals(parentOrderQuantity, filledQuantity); // Only 300 shares (parent order) should be bought assertion
 
         // re-trigger market data to ensure no more orders are created and over-execution is avoided
         send(finalMarketTickOverExecution());
         filledQuantity = state.getActiveChildOrders().stream().mapToLong(ChildOrder::getFilledQuantity).sum();
-        assertEquals(parentOrderQuantity, filledQuantity);
+        assertTrue(filledQuantity != 400);
+        assertTrue(filledQuantity == 300);
 
     }
 
