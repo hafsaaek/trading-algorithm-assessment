@@ -42,7 +42,7 @@ public class MyAlgoLogic implements AlgoLogic {
             *    - Total filled quantity of all Orders does not exceed parent order
             *    - There are max 3 orders on the market, if one is filled
             *    - If 3 orders are fully filled, no more orders are created
-            * 6. Handle partial fills by adding their quantities to the total filled amount. TO BE REVISITED
+            * 6. Handle partial fills by adding their quantities to the total filled amount. TO BE REVISITED ONCE STRETCH ALGO OBJECTIVE IS COMPLETED
         */
 
         long parentOrderQuantity = 300; // assume a client given parent order
@@ -58,8 +58,7 @@ public class MyAlgoLogic implements AlgoLogic {
 
 
         // 1. Prioritise retuning NO action to ensure the program checks when to stop before doing anything else
-
-        // Find filled active orders
+        // 1.1 Find filled active orders & deduce total filled quantity
         for (ChildOrder activeChildOrder : activeChildOrders) {
             if (activeChildOrder.getFilledQuantity() == childOrderQuantity) {
                 filledOrders.add(activeChildOrder);
@@ -67,39 +66,34 @@ public class MyAlgoLogic implements AlgoLogic {
         }
         logger.info("[MY-ALGO] Filled Orders Count: " + filledOrders.size());
 
-
         long totalFilledQuantity = allChildOrders.stream()
                 .mapToLong(ChildOrder::getFilledQuantity)
                 .sum(); // sum of quantities of all filled orders
         logger.info("[MY-ALGO] Total Filled Quantity for orders: " + totalFilledQuantity);
 
 
-        // 2. Stop if total filled quantity meets the parent order quantity and there are 3 fully filled orders
+        // 1.2 Stop if total filled quantity meets the parent order quantity and there are 3 fully filled orders
         if (totalFilledQuantity >= parentOrderQuantity && filledOrders.size() >= 3) {
             logger.info("[MY-ALGO] Total filled quantity has reached the target of " + totalFilledQuantity + ". No more actions required.");
             return NoAction;
         }
 
-        // 3. Stop if we've reached the max number of child orders (active + cancelled)
+        // 1.3 Stop if we've reached the max number of child orders (active + cancelled)
         if (allChildOrders.size() >= maxOrders) {
             logger.info("[MY-ALGO] Maximum number of child orders created: " + allChildOrders.size());
             return NoAction;
         }
 
-        // 4. Stop creating new orders if any of the active orders have been filled
-        if (filledOrders.size() >= 1 && activeChildOrders.size() < 3) {
-            logger.info("[MY-ALGO] One or more orders have been filled. Stopping further order creation.");
-            return NoAction;  // Return NoAction to stop further order creation
-        }
 
-        // 5. Ensure 3 active orders are on the market if none have been filled
+        // 2. Ensure 3 active orders are on the market if none have been filled
         if (filledOrders.size() < 3 && activeChildOrders.size() < 3 && totalFilledQuantity < parentOrderQuantity) {
             logger.info("[MY-ALGO] Creating new child order to maintain 3 active orders, want 3, have: " + activeNonFilledOrders);
             long price = bestBid.price;
             return new CreateChildOrder(Side.BUY, childOrderQuantity, price);
         }
 
-         // 6. If there are active orders more than 3, cancel the oldest order
+
+         // 3. If there are active orders more than 3, cancel the oldest order
         if (filledOrders.isEmpty() && activeNonFilledOrders >= 3) {
             ChildOrder nonFilledOrderToCancel = activeChildOrders.get(0); // stream & filter to active but not filled orders!
             logger.info("[MY-ALGO] Cancelling order: " + nonFilledOrderToCancel);
@@ -107,9 +101,8 @@ public class MyAlgoLogic implements AlgoLogic {
             return new CancelChildOrder(nonFilledOrderToCancel);
         }
 
-        // 7. Need to account for partially filled order when creating new orders!
-        // perhaps use the old logic that you create new orders with 100-old order placed on the market to ensure that 100 is always on the market
-// issue is that a child order is created 1, 2, 3, 4th
+        // 4. Need to account for partially filled order when creating new orders!
+        // perhaps use the old logic that you create new orders with 100 - old order placed on the market to ensure that 100 is always on the market
 
         logger.info("[MY-ALGO] No action to take");
         return NoAction;

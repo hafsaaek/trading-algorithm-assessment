@@ -34,18 +34,16 @@ public class MyAlgoTest extends AbstractAlgoTest {
         return new MyAlgoLogic();
     }
 
-    /*
-     * Tests:
+    /** Tests:
         1. Ensure only 4 max orders are created DONE
-        2. Ensure 3 orders are on the market (state active) unless 6 are created DONE
+        2. Ensure 3 orders are on the market (state active) DONE
         3. Once 3 orders are created (active) - the oldest order is cancelled DONE
-        4. For 6 orders created, only 3 are active and 9 are order state cancelled DONE
-        5. Program stops after 6 orders are created i.e. returns NO action DONE
+        4. If max orders (4) are created, only 3 are active and 1 is cancelled DONE
+        5. Program stops after 4 orders are created i.e. returns NO action DONE
         6. Program stops after totalFilledQuantity == ParentOrderQuantity i.e. returns NO action DONE
-        7. No new orders are created after totalFilledQuantity == ParentOrderQuantity i.e. ensure totalFilledQuantity is never > ParentOrderQuantity FAILING HERE
-        8. For a partially filled order --> remaining quantity is created with a new childOrder NEED TO COVER THIS IN LOGIC
-        9. After 6 are created - are the final 3 active orders cancelled? --> can do this by adding a condition of
-        10. EDGE CASE: what happens if 1 order is filled? Does the logic stop creating orders (since 2 are already on the market) &
+        7. No new orders are created after totalFilledQuantity == ParentOrderQuantity i.e. ensure totalFilledQuantity is never > ParentOrderQuantity DONE
+        8. For a partially filled order --> remaining quantity is created with a new childOrder NEED TO COVER THIS IN LOGIC - TO BE REVISITED ONCE STRETCH ALGO OBJECTIVE IS COMPLETED
+        9. EDGE CASE: what happens if 1 order is filled? Does the logic stop creating orders (since 2 are already on the market) &
      */
 
     MyAlgoLogic mylogic = new MyAlgoLogic();
@@ -57,7 +55,7 @@ public class MyAlgoTest extends AbstractAlgoTest {
         //create a sample market data tick....
         send(createTick());
 
-        //simple assert to check we have created max 6 orders created
+        //simple assert to check we have created max 4 orders created
         assertEquals(maxOrders, container.getState().getChildOrders().size());
     }
 
@@ -70,12 +68,11 @@ public class MyAlgoTest extends AbstractAlgoTest {
 
         assertEquals(maxOrders, container.getState().getChildOrders().size());
 
-        // Send another tick and assert NoAction is returned after re-triggering the market to further prove no more than 6 orders are created
+        // Send another tick and assert NoAction is returned after re-triggering the market to further prove no more than 4 orders are created
         send(createTick());
         Action returnAction = mylogic.evaluate(container.getState());
 
         assertEquals(NoAction.class, returnAction.getClass());
-
     }
 
     @Test
@@ -127,7 +124,7 @@ public class MyAlgoTest extends AbstractAlgoTest {
          //simple assert to check we had have 3 orders created
          assertEquals(1, cancelledOdersCount);
         
-         //simple assert to check we had 6 orders created
+         //simple assert to check we had 4 orders created
         assertEquals(4, totalOrders);
     }
 
@@ -144,6 +141,13 @@ public class MyAlgoTest extends AbstractAlgoTest {
 
         // Assert the total filled quantity is 300 (3 orders of 100 shares each)
         assertEquals(300, filledQuantity);
+
+        // Re-trigger market data to ensure that No action is returned after all 3 orders are filled
+        send(createTick2());
+        Action returnAction = mylogic.evaluate(container.getState());
+
+        assertEquals(NoAction.class, returnAction.getClass()); // response should 3 orders have been filled - no mor action to take as per logic!
+
     }
 
 }
