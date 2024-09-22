@@ -3,11 +3,10 @@ package codingblackfemales.gettingstarted;
 import codingblackfemales.action.Action;
 import codingblackfemales.action.CancelChildOrder;
 import codingblackfemales.action.CreateChildOrder;
-import codingblackfemales.action.NoAction;
 import codingblackfemales.algo.AlgoLogic;
 import codingblackfemales.sotw.ChildOrder;
-import codingblackfemales.sotw.OrderState;
 import codingblackfemales.sotw.SimpleAlgoState;
+import codingblackfemales.sotw.marketdata.BidLevel;
 import codingblackfemales.util.Util;
 import messages.order.Side;
 
@@ -28,63 +27,91 @@ public class MyAlgoLogic implements AlgoLogic {
 
         var orderBookAsString = Util.orderBookToString(state);
 
-        logger.info("[MYALGO] The state of the order book is:\n" + orderBookAsString);
+        logger.info("[MY-ALGO] The state of the order book is:\n" + orderBookAsString);
 
         /********
         * Trading Algorithm Logic:
-            * 1. Maintain 3 active child orders, each for 100 shares, to fill a parent order of 300 shares.
+            * 1. Maintain 3 active child orders on the market, each for 100 shares, to fill a parent order of 300 shares.
             * 2. Create new child orders if active orders are less than 3.
             * 3. Cancel the oldest active order when there are 3 or more active orders.
             * 4. Stop placing new orders if:
             *    - Total filled quantity reaches 300 shares.
-            *    - More than 12 child orders (active + canceled) have been created.
-            *    - 3 child orders have fully filled.
-            * 5. Handle partial fills by adding their quantities to the total filled amount.         
+            *    - More than 4 child orders (active + canceled) have been created.
+            *    - 3 (fully executed) child orders have fully filled.
+            * 5. Over-Execution has been accounted for because we are ensuring:
+            *    - Total filled quantity of all Orders does not exceed parent order
+            *    - There are max 3 orders on the market, if one is filled
+            *    - If 3 orders are fully filled, no more orders are created
+            * 6. Handle partial fills by adding their quantities to the total filled amount. TO BE REVISITED
         */
 
         long parentOrderQuantity = 300; // assume a client given parent order
         long childOrderQuantity = 100; // fixed child order quantity, assume 1/3 of parent order
-        long targetBuyPrice = 10; // target buy price
+        BidLevel bestBid = state.getBidAt(0);
+        int maxOrders = 4;
+        int maxOrdersOnMarket = 3;
 
         List<ChildOrder> allChildOrders = state.getChildOrders(); // list of all child orders (active and non-active)
         List<ChildOrder> activeChildOrders = state.getActiveChildOrders(); // active child orders only (non cancelled ones)
+        List<ChildOrder> filledOrders = new ArrayList<>(); // to store  filled cancelled orders
+        int activeNonFilledOrders = activeChildOrders.size() - filledOrders.size();
 
-        // 1. Prioritise retuning NO action to ensure the porgam checks when to stop before doing anything else
-        long totalFilledQuantity = 0; // sum of quanitites of all filled orders
-        List<ChildOrder> filledOrders= new ArrayList<>(); 
 
-        for(ChildOrder activeChildOrder : activeChildOrders){
-            if (activeChildOrder.getState() == OrderState.FILLED || activeChildOrder.getFilledQuantity() > 0) {
-                logger.info("[MYALGO] Active Child order" + activeChildOrder + " has filled quanitity:" + activeChildOrder.getFilledQuantity());
-                totalFilledQuantity += activeChildOrder.getFilledQuantity();
+        // 1. Prioritise retuning NO action to ensure the program checks when to stop before doing anything else
+
+        // Find filled active orders
+        for (ChildOrder activeChildOrder : activeChildOrders) {
+            if (activeChildOrder.getFilledQuantity() == childOrderQuantity) {
                 filledOrders.add(activeChildOrder);
-            }   
+            }
         }
-        // Conditions to stop the program: if 3 orders have been fulled (assuming 3 sets of 100 quanitities) OR maxChildOrders has been created (arbitarty vlaue of 12) OR full parent order has been filled (300) 
-        if(totalFilledQuantity >= parentOrderQuantity || allChildOrders.size() >= 12) {            
+        logger.info("[MY-ALGO] Filled Orders Count: " + filledOrders.size());
+
+
+        long totalFilledQuantity = allChildOrders.stream()
+                .mapToLong(ChildOrder::getFilledQuantity)
+                .sum(); // sum of quantities of all filled orders
+        logger.info("[MY-ALGO] Total Filled Quantity for orders: " + totalFilledQuantity);
+
+
+        // 2. Stop if total filled quantity meets the parent order quantity and there are 3 fully filled orders
+        if (totalFilledQuantity >= parentOrderQuantity && filledOrders.size() >= 3) {
+            logger.info("[MY-ALGO] Total filled quantity has reached the target of " + totalFilledQuantity + ". No more actions required.");
             return NoAction;
         }
 
-
-         // 2. If there are active orders more than 3, cancel the oldest order 
-        if (activeChildOrders.size() >= 3) {
-            ChildOrder childOrderToCancel = activeChildOrders.get(0);
-            logger.info("[MYALGO] Cancelling order: " + childOrderToCancel);
-            logger.info("[MYALGO] Order States: " + childOrderToCancel.getState());
-            return new CancelChildOrder(childOrderToCancel);
+        // 3. Stop if we've reached the max number of child orders (active + cancelled)
+        if (allChildOrders.size() >= maxOrders) {
+            logger.info("[MY-ALGO] Maximum number of child orders created: " + allChildOrders.size());
+            return NoAction;
         }
 
-
-        // 3. Now focus on cancelling child orders
-        if (activeChildOrders.size() < 3 && totalFilledQuantity < parentOrderQuantity && state.getAskLevels() > 0) {
-            logger.info("[MYALGO] Adding BID order for: " + childOrderQuantity + "@" + targetBuyPrice);
-            return new CreateChildOrder(Side.BUY, childOrderQuantity, targetBuyPrice); 
+        // 4. Stop creating new orders if any of the active orders have been filled
+        if (filledOrders.size() >= 1 && activeChildOrders.size() < 3) {
+            logger.info("[MY-ALGO] One or more orders have been filled. Stopping further order creation.");
+            return NoAction;  // Return NoAction to stop further order creation
         }
 
-        // 4. Need to account for partially filled order when creating new orders!
+        // 5. Ensure 3 active orders are on the market if none have been filled
+        if (filledOrders.size() < 3 && activeChildOrders.size() < 3 && totalFilledQuantity < parentOrderQuantity) {
+            logger.info("[MY-ALGO] Creating new child order to maintain 3 active orders, want 3, have: " + activeNonFilledOrders);
+            long price = bestBid.price;
+            return new CreateChildOrder(Side.BUY, childOrderQuantity, price);
+        }
 
+         // 6. If there are active orders more than 3, cancel the oldest order
+        if (filledOrders.isEmpty() && activeNonFilledOrders >= 3) {
+            ChildOrder nonFilledOrderToCancel = activeChildOrders.get(0); // stream & filter to active but not filled orders!
+            logger.info("[MY-ALGO] Cancelling order: " + nonFilledOrderToCancel);
+            logger.info("[MY-ALGO] Order State: " + nonFilledOrderToCancel.getState());
+            return new CancelChildOrder(nonFilledOrderToCancel);
+        }
 
-        logger.info("[MYALGO] No action to take");
+        // 7. Need to account for partially filled order when creating new orders!
+        // perhaps use the old logic that you create new orders with 100-old order placed on the market to ensure that 100 is always on the market
+// issue is that a child order is created 1, 2, 3, 4th
+
+        logger.info("[MY-ALGO] No action to take");
         return NoAction;
     }
 
