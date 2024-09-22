@@ -1,5 +1,7 @@
 // package codingblackfemales.ui.module;
 
+// LOADER IS LOADING DATA FROM MARKET RANDOM GENERATOR
+
 // import codingblackfemales.sequencer.net.Network;
 // import codingblackfemales.sequencer.net.TestNetwork;
 // import org.finos.toolbox.time.Clock;
