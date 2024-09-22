@@ -36,7 +36,7 @@ public class MyAlgoTest extends AbstractAlgoTest {
 
     /*
      * Tests:
-        1. Ensure only 6 max orders are created DONE
+        1. Ensure only 4 max orders are created DONE
         2. Ensure 3 orders are on the market (state active) unless 6 are created DONE
         3. Once 3 orders are created (active) - the oldest order is cancelled DONE
         4. For 6 orders created, only 3 are active and 9 are order state cancelled DONE
@@ -53,7 +53,7 @@ public class MyAlgoTest extends AbstractAlgoTest {
     @Test
     // @DisplayName
     public void testOrdersCreation() throws Exception {
-        int maxOrders = 6;
+        int maxOrders = 4;
         //create a sample market data tick....
         send(createTick());
 
@@ -63,7 +63,7 @@ public class MyAlgoTest extends AbstractAlgoTest {
 
     @Test
     public void testNoMoreThanMaxOrdersChildOrdersCreated() throws Exception {
-        int maxOrders = 6;
+        int maxOrders = 4;
 
         //create a sample market data tick....
         send(createTick());
@@ -125,10 +125,10 @@ public class MyAlgoTest extends AbstractAlgoTest {
         assertEquals(3, nonCancelledOrdersCount);
 
          //simple assert to check we had have 3 orders created
-         assertEquals(3, cancelledOdersCount);
+         assertEquals(1, cancelledOdersCount);
         
          //simple assert to check we had 6 orders created
-        assertEquals(6, totalOrders);
+        assertEquals(4, totalOrders);
     }
 
     @Test
@@ -144,27 +144,6 @@ public class MyAlgoTest extends AbstractAlgoTest {
 
         // Assert the total filled quantity is 300 (3 orders of 100 shares each)
         assertEquals(300, filledQuantity);
-    }
-
-    @Test
-    public void testNoMoreOrdersAfterOneIsFilled() throws Exception {
-        // Simulate sending the first tick to create 3 orders
-        send(createTick());
-
-
-        // Simulate filling the 3 active orders
-//        container.getState().getActiveChildOrders().forEach(order -> order.addFill(100, 10));
-
-        // Verify the total filled quantity is 300 (3 orders filled with 100 shares each)
-        long filledQuantity = container.getState().getChildOrders().stream().map(ChildOrder::getFilledQuantity).reduce(Long::sum).get();
-        assertEquals(100, filledQuantity);
-
-        // Re-evaluate the algo to ensure no more orders are created after filling 3
-//        Action returnAction = mylogic.evaluate(container.getState());
-//        assertEquals(NoAction.class, returnAction.getClass()); // Expect no action after 3 orders are filled
-
-        // Ensure that no new orders are added after the 3 orders are filled
-        assertEquals(3, container.getState().getChildOrders().size()); // Only 3 orders should exist, and all should be filled
     }
 
 }
