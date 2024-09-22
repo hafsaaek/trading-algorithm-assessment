@@ -1,9 +1,10 @@
 package codingblackfemales.gettingstarted;
 
-import codingblackfemales.action.*;
+import codingblackfemales.action.Action;
+import codingblackfemales.action.CancelChildOrder;
+import codingblackfemales.action.CreateChildOrder;
 import codingblackfemales.algo.AlgoLogic;
 import codingblackfemales.sotw.ChildOrder;
-import codingblackfemales.sotw.OrderState;
 import codingblackfemales.sotw.SimpleAlgoState;
 import codingblackfemales.sotw.marketdata.BidLevel;
 import codingblackfemales.util.Util;
@@ -11,6 +12,7 @@ import messages.order.Side;
 
 import static codingblackfemales.action.NoAction.NoAction;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -18,91 +20,92 @@ import org.slf4j.LoggerFactory;
 
 public class MyAlgoLogic implements AlgoLogic {
 
-    private static final Logger logger = LoggerFactory.getLogger(MyAlgoLogic.class); // to track events, errors, or important information specifically within the MyAlgoLogic class
+    private static final Logger logger = LoggerFactory.getLogger(MyAlgoLogic.class);
 
-    /*
-        You need to account for 3 main functions:
-            1. Add new orders (queuing according to price-time-priority?)
-                --> Strategy: create orders passively but sell if price > vwap and buy if price < vwap
-            2. Execute and match bids to asks & vice versa by manually injecting a market price to provide an offer Maybe this is for stretch exercise?
-            3.  Cancel orders once executed
-
-        Stretch exercise: make money. How?
-        --> by looking at more than one market data e.g., have an array of market prices you can compare with your bid/ask price and then select the best price from that
-        */
     @Override
     public Action evaluate(SimpleAlgoState state) {
 
-        var orderBookAsString = Util.orderBookToString(state); // create order book
+        var orderBookAsString = Util.orderBookToString(state);
 
-        logger.info("[MYALGO] The state of the order book is:\n" + orderBookAsString);
+        logger.info("[MY-ALGO] The state of the order book is:\n" + orderBookAsString);
 
-        long parentOrderQuantity = 3000; // assume a client given parent order
-        long quantity = 1000; // fixed child order quantity, assume 10% of parent order
-        int totalRequiredChildOrders = (int) (parentOrderQuantity / quantity); // number of required child orders to fill parent order
-        List<ChildOrder> activeChildOrders = state.getActiveChildOrders(); // number of active child orders
-        int remainingOrdersNeeded = totalRequiredChildOrders - state.getChildOrders().size(); // to keep track of child orders made
+        /********
+        * Trading Algorithm Logic:
+            * 1. Maintain 3 active child orders on the market, each for 100 shares, to fill a parent order of 300 shares.
+            * 2. Create new child orders if active orders are less than 3.
+            * 3. Cancel the oldest active order when there are 3 or more active orders.
+            * 4. Stop placing new orders if:
+            *    - Total filled quantity reaches 300 shares.
+            *    - More than 4 child orders (active + canceled) have been created.
+            *    - 3 (fully executed) child orders have fully filled.
+            * 5. Over-Execution has been accounted for because we are ensuring:
+            *    - Total filled quantity of all Orders does not exceed parent order
+            *    - There are max 3 orders on the market, if one is filled
+            *    - If 3 orders are fully filled, no more orders are created
+            * 6. Handle partial fills by adding their quantities to the total filled amount. TO BE REVISITED ONCE STRETCH ALGO OBJECTIVE IS COMPLETED
+        */
 
-        // 1. If a child order in the list of active orders is filled - then cancel it
-        for (ChildOrder childOrder : activeChildOrders) {
-            if (childOrder.getState() == OrderState.FILLED) {
-                logger.info("[MYALGO] Cancelling order:" + childOrder);
-                return new CancelChildOrder(childOrder);
+        long parentOrderQuantity = 300; // assume a client given parent order
+        long childOrderQuantity = 100; // fixed child order quantity, assume 1/3 of parent order
+        BidLevel bestBid = state.getBidAt(0);
+        int maxOrders = 4;
+        int maxOrdersOnMarket = 3;
+
+        List<ChildOrder> allChildOrders = state.getChildOrders(); // list of all child orders (active and non-active)
+        List<ChildOrder> activeChildOrders = state.getActiveChildOrders(); // active child orders only (non cancelled ones)
+        List<ChildOrder> filledOrders = new ArrayList<>(); // to store  filled cancelled orders
+        int activeNonFilledOrders = activeChildOrders.size() - filledOrders.size();
+
+
+        // 1. Prioritise retuning NO action to ensure the program checks when to stop before doing anything else
+        // 1.1 Find filled active orders & deduce total filled quantity
+        for (ChildOrder activeChildOrder : activeChildOrders) {
+            if (activeChildOrder.getFilledQuantity() == childOrderQuantity) {
+                filledOrders.add(activeChildOrder);
             }
         }
-        logger.info("[MYALGO] Current active child orders1: " + activeChildOrders.size());
+        logger.info("[MY-ALGO] Filled Orders Count: " + filledOrders.size());
+
+        long totalFilledQuantity = allChildOrders.stream()
+                .mapToLong(ChildOrder::getFilledQuantity)
+                .sum(); // sum of quantities of all filled orders
+        logger.info("[MY-ALGO] Total Filled Quantity for orders: " + totalFilledQuantity);
 
 
-
-        // 2. If there are enough child orders made - return no action
-        if (activeChildOrders.size() >= totalRequiredChildOrders) {
-            logger.info("[MYALGO] All child orders have been created for parent order");
+        // 1.2 Stop if total filled quantity meets the parent order quantity and there are 3 fully filled orders
+        if (totalFilledQuantity >= parentOrderQuantity && filledOrders.size() >= 3) {
+            logger.info("[MY-ALGO] Total filled quantity has reached the target of " + totalFilledQuantity + ". No more actions required.");
             return NoAction;
         }
 
-        logger.info("[MYALGO] Current active child orders2: " + activeChildOrders.size());
+        // 1.3 Stop if we've reached the max number of child orders (active + cancelled)
+        if (allChildOrders.size() >= maxOrders) {
+            logger.info("[MY-ALGO] Maximum number of child orders created: " + allChildOrders.size());
+            return NoAction;
+        }
 
 
-        // 3. (Will run regardless of 1 & 2) Create a new child order if there is 1 or more ask offers 
-        if (remainingOrdersNeeded > 0 && state.getAskLevels() > 0) { 
-            logger.info("[MYALGO] Sell order found, finding best ask before placing child order");
-            final BidLevel bidPrice = state.getBidAt(0);
-            long bestBid = bidPrice.price; // // highest buy price - bid price will almost always be lower than the ask or “offer,” price!
+        // 2. Ensure 3 active orders are on the market if none have been filled
+        if (filledOrders.size() < 3 && activeChildOrders.size() < 3 && totalFilledQuantity < parentOrderQuantity) {
+            logger.info("[MY-ALGO] Creating new child order to maintain 3 active orders, want 3, have: " + activeNonFilledOrders);
+            long price = bestBid.price;
+            return new CreateChildOrder(Side.BUY, childOrderQuantity, price);
+        }
 
-            // If there are missing child orders to fill parent order - create new child order
 
-            logger.info("[MYALGO] Adding BID order for: " + quantity + "@" + bestBid + ": you now have a total of " + activeChildOrders.size() + " and require " + remainingOrdersNeeded + " more child orders to fill parent order");
-            return new CreateChildOrder(Side.BUY, quantity, bestBid);
-        } 
+         // 3. If there are active orders more than 3, cancel the oldest order
+        if (filledOrders.isEmpty() && activeNonFilledOrders >= 3) {
+            ChildOrder nonFilledOrderToCancel = activeChildOrders.get(0); // stream & filter to active but not filled orders!
+            logger.info("[MY-ALGO] Cancelling order: " + nonFilledOrderToCancel);
+            logger.info("[MY-ALGO] Order State: " + nonFilledOrderToCancel.getState());
+            return new CancelChildOrder(nonFilledOrderToCancel);
+        }
 
-        logger.info("[MYALGO] Current active child orders3: " + activeChildOrders.size());
+        // 4. Need to account for partially filled order when creating new orders!
+        // perhaps use the old logic that you create new orders with 100 - old order placed on the market to ensure that 100 is always on the market
 
+        logger.info("[MY-ALGO] No action to take");
         return NoAction;
-
-    } // grep -r askLevels 
-    // ./mvnw clean test --projects algo-exercise/getting-started -Dtest=codingblackfemales.gettingstarted.MyAlgoTest > test-results.txt
+    }
 
 }
-
-/*
-OLD LOGIC: use VWAP to judge when to sell and buy 
-        double vwap = calculateVWAP();
-
- if (bestBid < vwap) { // if price < vwap: buy
-            logger.info("[ADDCANCELALGO] Adding BID order for" + quantity + "@" + bestBid + "You now have a total of " + activeChildOrders.size() + " and require " + remainingOrdersNeeded + " more child orders to fill parent order" );
-            return new CreateChildOrder(Side.BUY, quantity, bestBid);
-        }else if (bestAsk > vwap) { // if price > vwap: sell so cancel the buy order 
-            var childOrder = option.get();
-            logger.info("[ADDCANCELALGO] Cancelling order:" + childOrder);
-            return new CancelChildOrder(childOrder);            
-            // The other option is to change the condition to SellPrice > vwap; thus create a sell child order but maybe this is where I need to cancel the order 
-            // logger.info("[ADDCANCELALGO] Adding ASK order for" + quantity + "@" + bestAsk + "You now have a total of " + activeChildOrders + " and require " + remainingOrdersNeeded + " more child orders to fill parent order");
-            // return new CreateChildOrder(Side.SELL, quantity, bestAsk);            
-        } else {
-            logger.info("Do nothing for now until price drops");
-            return NoAction.NoAction;
-        } 
-        private double calculateVWAP() {
-        // throw new UnsupportedOperationException("Unimplemented method 'calculateVWAP'");
-        return 100;
-    }*/

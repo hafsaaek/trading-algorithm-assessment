@@ -3,3 +3,7 @@
 
 *.txt
 *.sh
+/.vscode
+
+# IDEA config files
+.idea/
