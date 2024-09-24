@@ -1,67 +1,113 @@
 package codingblackfemales.gettingstarted;
 
-import java.util.List;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import codingblackfemales.action.Action;
 import codingblackfemales.action.CancelChildOrder;
 import codingblackfemales.action.CreateChildOrder;
-import codingblackfemales.action.NoAction;
 import codingblackfemales.algo.AlgoLogic;
 import codingblackfemales.sotw.ChildOrder;
 import codingblackfemales.sotw.SimpleAlgoState;
-import codingblackfemales.sotw.marketdata.AskLevel;
 import codingblackfemales.sotw.marketdata.BidLevel;
 import codingblackfemales.util.Util;
 import messages.order.Side;
+import static codingblackfemales.action.NoAction.NoAction;
+import java.time.*;
+import java.util.ArrayList;
+import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class StretchAlgoLogic implements AlgoLogic {
 
     private static final Logger logger = LoggerFactory.getLogger(StretchAlgoLogic.class);
+    private static final LocalTime MARKET_OPEN_TIME = LocalTime.of(8, 0, 0);
+    private static final LocalTime MARKET_CLOSE_TIME = LocalTime.of(16, 30, 0);
+    private static final ZoneId LONDON_TIME_ZONE = ZoneId.of("Europe/London");
 
     @Override
     public Action evaluate(SimpleAlgoState state) {
 
+        /*
+        * New logic:
+            * 1. Cancel an order if the order is active but not filled and market is closed (time based on LSEG opening times)
+            * 2. Create 3 child orders for a parent order of 300
+            * 3.
+        */
+
         var orderBookAsString = Util.orderBookToString(state);
 
-        logger.info("[MYALGO] The state of the order book is:\n" + orderBookAsString);
+        logger.info("[STRETCH-ALGO] The state of the order book is:\n" + orderBookAsString);
 
-    
+        long parentOrderQuantity = 300; // assume a client given parent order
+        long childOrderQuantity = 100; // fixed child order quantity, assume 1/3 of parent order
+        BidLevel bestBid = state.getBidAt(0);
+        int maxOrders = 3;
 
-        long quantity = 100; // fixed child order quantity, assume 1/3 of parent order
         List<ChildOrder> allChildOrders = state.getChildOrders(); // list of all child orders (active and non-active)
-        List<ChildOrder> activeChildOrders = state.getActiveChildOrders(); // active child orders only
-        int totalOrderCount = allChildOrders.size(); // total number of child orders created so far
-        int activeOrderCount = activeChildOrders.size(); // number of active child orders
+        List<ChildOrder> activeChildOrders = state.getActiveChildOrders(); // active child orders only (non cancelled ones)
+        List<ChildOrder> filledOrders = new ArrayList<>(); // to store  filled cancelled orders
+        int activeNonFilledOrders = activeChildOrders.size() - filledOrders.size(); // to store  non-filled cancelled orders
 
-        final BidLevel bid = state.getBidAt(0);
-        final AskLevel ask = state.getAskAt(0);
 
-        long bestBid = bid.price;
-        long bestAsk = ask.price;
-
-        double vwap = calculateVWAP();
-
-    
-        if (bestBid < vwap) { // if price < vwap: buy
-            logger.info("[ADDCANCELALGO] Adding BID order for" + quantity + "@" + bestBid + "You now have a total of " + activeChildOrders.size());
-            return new CreateChildOrder(Side.BUY, quantity, bestBid);
-        }else if (bestAsk > vwap) { // if price > vwap: sell so cancel the buy order 
-            logger.info("[ADDCANCELALGO] Adding a Ask order for" + quantity + "@" + bestAsk + "You now have a total of " + activeChildOrders.size()); // log according to each side - get
-            return new CreateChildOrder(Side.BUY, quantity, bestBid);
-         
-        } else {
-            logger.info("Do nothing for now until market stabilises?");
-            return NoAction.NoAction;
-        } 
-    }
-
-        private double calculateVWAP() {
-        throw new UnsupportedOperationException("Unimplemented method 'calculateVWAP'");
+        // 1.1 Find filled active orders & deduce total filled quantity & Cancel non-filled orders if the market is closed
+        for (ChildOrder activeChildOrder : activeChildOrders) {
+            if (activeChildOrder.getFilledQuantity() == childOrderQuantity) {
+                filledOrders.add(activeChildOrder);
+            }  // 1.2 If there are active orders more than 3, cancel the oldest order
+            if (!filledOrders.contains(activeChildOrder) && isMarketClosed() == true && !activeChildOrders.isEmpty()) {
+                logger.info("[STRETCH-ALGO] The market is closed, cancelling orders ");
+                ChildOrder nonFilledOrderToCancel = activeChildOrders.get(0); // stream & filter to active but not filled orders!
+                logger.info("[STRETCH-ALGO] Cancelling day order: " + nonFilledOrderToCancel);
+                logger.info("[STRETCH-ALGO] Order State: " + nonFilledOrderToCancel.getState());
+                return new CancelChildOrder(nonFilledOrderToCancel);
+            }
         }
+        logger.info("[STRETCH-ALGO] Filled Orders Count: " + filledOrders.size());
+
+        long totalFilledQuantity = allChildOrders.stream()
+                .mapToLong(ChildOrder::getFilledQuantity)
+                .sum(); // sum of quantities of all filled orders
+        logger.info("[STRETCH-ALGO] Total Filled Quantity for orders: " + totalFilledQuantity);
+
+        // 2 Stop if total filled quantity meets the parent order quantity and there are 3 fully filled orders
+        if (totalFilledQuantity >= parentOrderQuantity && filledOrders.size() >= 3) {
+            logger.info("[STRETCH-ALGO] Total filled quantity has reached the target of " + totalFilledQuantity + ". No more actions required.");
+            return NoAction;
+        }
+
+        // 3 Stop if we've reached the max number of child orders (active + cancelled)
+        if (allChildOrders.size() >= maxOrders || isMarketClosed() == true) {
+            logger.info("[STRETCH-ALGO] Maximum number of child orders created: " + allChildOrders.size() + " Or Market is closed: " + isMarketClosed() +" UK local time");
+            return NoAction;
+        }
+
+        // 4. Ensure 3 active orders are on the market if none have been filled
+        if (filledOrders.size() < 3 && activeChildOrders.size() < 3 && totalFilledQuantity < parentOrderQuantity) {
+            logger.info("[STRETCH-ALGO] Creating new child order to maintain 3 active orders, want 3, have: " + activeNonFilledOrders);
+            long price = bestBid.price;
+            return new CreateChildOrder(Side.BUY, childOrderQuantity, price);
+        }
+
+        // 5. Need to account for partially filled order when creating new orders!
+        // perhaps use the old logic that you create new orders with 100 - old order placed on the market to ensure that 100 is always on the market
+
+        logger.info("[STRETCH-ALGO] No action to take");
+        return NoAction;
     }
 
-   
-    
+    // Method to see when the order book is closed
+    public boolean isMarketClosed() {
+        ZonedDateTime timeNow = ZonedDateTime.now(LONDON_TIME_ZONE); // Define London time zone & the present time
+        LocalDate today = LocalDate.now(LONDON_TIME_ZONE); // Declare today's date according to London's time zone
+        ZonedDateTime marketCloseDateTime = ZonedDateTime.of(today, MARKET_CLOSE_TIME, LONDON_TIME_ZONE); // Declare market closing conditions
+        ZonedDateTime marketOpenDateTime = ZonedDateTime.of(today, MARKET_OPEN_TIME, LONDON_TIME_ZONE);  // Declare market opening conditions
 
+        // Deduce if the current time is before opening, after closing, or on a weekend - we will ignore holidays for now (could create a list/map of holiday
+        if (timeNow.isBefore(marketOpenDateTime) || timeNow.isAfter(marketCloseDateTime) || timeNow.isEqual(marketCloseDateTime) || today.getDayOfWeek() == DayOfWeek.SATURDAY || today.getDayOfWeek() == DayOfWeek.SUNDAY) {
+            return true; // Market is closed @ or after 4.30pm
+        }
+        // Otherwise return false
+        return false; // Market is open
+    }
+
+
+}
