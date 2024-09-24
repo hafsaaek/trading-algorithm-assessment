@@ -26,12 +26,13 @@ public class StretchAlgoLogic implements AlgoLogic {
     @Override
     public Action evaluate(SimpleAlgoState state) {
 
-        /*
-        * New logic:
-            * 1. Cancel an order if the order is active but not filled and market is closed (time based on LSEG opening times)
-            * 2. Create 3 child orders for a parent order of 300
-            * 3.
-        */
+        /* New logic:
+            * 1. Maintain 3 active child orders on the market, each for 100 shares, to fill a parent order of 300 shares
+            * 2. Cancel an order if the order is active but not filled and market is closed (time based on LSEG opening times)
+            * 3.  Stop the script i.e. return No Action when:
+                * - Total filled quantity reaches parent order or 3 child orders have fully filled to prevent over-execution
+                * - Three child orders (active + canceled) have been created
+                * None of the above conditions or 1 & 2 are true */
 
         var orderBookAsString = Util.orderBookToString(state);
 
@@ -74,13 +75,13 @@ public class StretchAlgoLogic implements AlgoLogic {
             return NoAction;
         }
 
-        // 3 Stop if we've reached the max number of child orders (active + cancelled)
+        // 3 Stop if we've reached the max number of child orders (active + cancelled) or the market is closed
         if (allChildOrders.size() >= maxOrders || isMarketClosed() == true) {
             logger.info("[STRETCH-ALGO] Maximum number of child orders created: " + allChildOrders.size() + " Or Market is closed: " + isMarketClosed() +" UK local time");
             return NoAction;
         }
 
-        // 4. Ensure 3 active orders are on the market if none have been filled
+        // 4. Ensure 3 active orders are on the market
         if (filledOrders.size() < 3 && activeChildOrders.size() < 3 && totalFilledQuantity < parentOrderQuantity) {
             logger.info("[STRETCH-ALGO] Creating new child order to maintain 3 active orders, want 3, have: " + activeNonFilledOrders);
             long price = bestBid.price;
@@ -108,6 +109,5 @@ public class StretchAlgoLogic implements AlgoLogic {
         // Otherwise return false
         return false; // Market is open
     }
-
 
 }
