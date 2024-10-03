@@ -1,113 +1,138 @@
 package codingblackfemales.gettingstarted;
 
 import codingblackfemales.action.Action;
-import codingblackfemales.action.CancelChildOrder;
 import codingblackfemales.action.CreateChildOrder;
+import codingblackfemales.action.NoAction;
 import codingblackfemales.algo.AlgoLogic;
-import codingblackfemales.sotw.ChildOrder;
 import codingblackfemales.sotw.SimpleAlgoState;
+import codingblackfemales.sotw.marketdata.AskLevel;
 import codingblackfemales.sotw.marketdata.BidLevel;
 import codingblackfemales.util.Util;
 import messages.order.Side;
-import static codingblackfemales.action.NoAction.NoAction;
-import java.time.*;
-import java.util.ArrayList;
-import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class StretchAlgoLogic implements AlgoLogic {
 
     private static final Logger logger = LoggerFactory.getLogger(StretchAlgoLogic.class);
-    private static final LocalTime MARKET_OPEN_TIME = LocalTime.of(8, 0, 0);
-    private static final LocalTime MARKET_CLOSE_TIME = LocalTime.of(16, 30, 0);
-    private static final ZoneId LONDON_TIME_ZONE = ZoneId.of("Europe/London");
 
     @Override
     public Action evaluate(SimpleAlgoState state) {
-
-        /* New logic:
-            * 1. Maintain 3 active child orders on the market, each for 100 shares, to fill a parent order of 300 shares
-            * 2. Cancel an order if the order is active but not filled and market is closed (time based on LSEG opening times)
-            * 3.  Stop the script i.e. return No Action when:
-                * - Total filled quantity reaches parent order or 3 child orders have fully filled to prevent over-execution
-                * - Three child orders (active + canceled) have been created
-                * None of the above conditions or 1 & 2 are true */
-
         var orderBookAsString = Util.orderBookToString(state);
 
-        logger.info("[STRETCH-ALGO] The state of the order book is:\n" + orderBookAsString);
+        logger.info("[STRETCH-ALGO] The state of the order book is:\n{}", orderBookAsString);
+        /* Money Making Logic:
+         * 1. Calculate the weighted average of the order book as new orders come in
+         * 2. Compute the difference between weighted averages as orders come in -
+         * If the momentum (weight average difference) points to an INCREASING trend --> Order book is becoming more expensive thus place a BUY order to secure cheaper bid price
+         * If the momentum (weight average difference) points to an DECREASING trend --> Order book is getting cheaper thus place a SELL order to secure higher ask price
+         * Note: if trend is increasing (avg diff > 0) --> we want to buy at the best bid price because other ask orders are expected to be more expensive
+         * Would EMA be better?
+         * Question: would you not want to place orders right away - when the market is fresh and new, this method is dis-advantageous because it might take some time to calculate trends before
+         * this algo also assumes we have roughly equal bid & ask orders
+         */
 
-        long parentOrderQuantity = 300; // assume a client given parent order
-        long childOrderQuantity = 100; // fixed child order quantity, assume 1/3 of parent order
-        BidLevel bestBid = state.getBidAt(0);
-        int maxOrders = 3;
+        List<OrderBookLevel> marketOrders = getListOfOrderLevels(state);
 
-        List<ChildOrder> allChildOrders = state.getChildOrders(); // list of all child orders (active and non-active)
-        List<ChildOrder> activeChildOrders = state.getActiveChildOrders(); // active child orders only (non cancelled ones)
-        List<ChildOrder> filledOrders = new ArrayList<>(); // to store  filled cancelled orders
-        int activeNonFilledOrders = activeChildOrders.size() - filledOrders.size(); // to store  non-filled cancelled orders
+        // get the moving averages
+        List<Double> movingAverageList = calculateWeightedMovingAverage(state);
+        // calculate the market trend by calling
+        double marketTrend = evaluateMarketTrend(movingAverageList);
+
+        final int MINIMUM_ORDER_COUNT_FOR_MARKET_TREND_EVALUATION = 6; // Arbitrary level to ensure there are e.g., 3 asks and 3 bids
+        long childOrderQuantity = 100;
+
+        if (marketOrders.size() >= MINIMUM_ORDER_COUNT_FOR_MARKET_TREND_EVALUATION){
+            logger.info("[STRETCH-ALGORITHM] We have enough orders {} to evaluate the market trend", marketOrders.size());
+            final BidLevel bestBid = state.getBidAt(0);
+            final AskLevel bestAsk = state.getAskAt(0);
+            if (marketTrend > 0) {
+                logger.info("[STRETCH-ALGORITHM] Prices are expected to increase as WMA is more than 0, best time to place a BUY order. Placing a Child order");
+                long price = bestBid.price;
+                return new CreateChildOrder(Side.BUY, childOrderQuantity, price);
+            } else if (marketTrend < 0) {
+                logger.info("[STRETCH-ALGORITHM] Prices are expected to fall as WMA is less than 0, best time to place a SELL order. Placing a Child order");
+                long price = bestAsk.price;
+                return new CreateChildOrder(Side.SELL, childOrderQuantity, price);
+            } else {
+                logger.info("[STRETCH-ALGORITHM] Market is stable, holding off placing orders for the meantime");
+                return NoAction.NoAction;
+            }
+        } else {
+            logger.info("[STRETCH-ALGORITHM] Order book does not contain enough orders to evaluate market trend, waiting for more orders");
+            return NoAction.NoAction;
+        }
+    }
 
 
-        // 1.1 Find filled active orders & deduce total filled quantity & Cancel non-filled orders if the market is closed
-        for (ChildOrder activeChildOrder : activeChildOrders) {
-            if (activeChildOrder.getFilledQuantity() == childOrderQuantity) {
-                filledOrders.add(activeChildOrder);
-            }  // 1.2 If there are active orders more than 3, cancel the oldest order
-            if (!filledOrders.contains(activeChildOrder) && isMarketClosed() == true && !activeChildOrders.isEmpty()) {
-                logger.info("[STRETCH-ALGO] The market is closed, cancelling orders ");
-                ChildOrder nonFilledOrderToCancel = activeChildOrders.get(0); // stream & filter to active but not filled orders!
-                logger.info("[STRETCH-ALGO] Cancelling day order: " + nonFilledOrderToCancel);
-                logger.info("[STRETCH-ALGO] Order State: " + nonFilledOrderToCancel.getState());
-                return new CancelChildOrder(nonFilledOrderToCancel);
+    public List<OrderBookLevel> getListOfOrderLevels(SimpleAlgoState state) {
+        List<OrderBookLevel> orderLevelsList = new ArrayList<>(); // initialise an empty list of orderLevel Objects
+
+        int maxCountOfLevels = Math.max(state.getAskLevels(), state.getBidLevels()); // get max number of levels in order book
+
+        for (int i =0; i < maxCountOfLevels; i++) {
+            if (state.getBidLevels() > i) { // if there are bid orders --> get the first level price & quantity
+                BidLevel bidLevel =  state.getBidAt(i);
+                orderLevelsList.add(new OrderBookLevel(bidLevel.price, bidLevel.quantity)); // Create a new OrderBookLevel for bid side
+            }
+            if (state.getAskLevels() > i) { // if there are ask orders --> get the first level price & quantity
+                AskLevel askLevel =  state.getAskAt(i);
+                orderLevelsList.add(new OrderBookLevel(askLevel.price, askLevel.quantity)); // Create a new OrderBookLevel for ask side
             }
         }
-        logger.info("[STRETCH-ALGO] Filled Orders Count: " + filledOrders.size());
-
-        long totalFilledQuantity = allChildOrders.stream()
-                .mapToLong(ChildOrder::getFilledQuantity)
-                .sum(); // sum of quantities of all filled orders
-        logger.info("[STRETCH-ALGO] Total Filled Quantity for orders: " + totalFilledQuantity);
-
-        // 2 Stop if total filled quantity meets the parent order quantity and there are 3 fully filled orders
-        if (totalFilledQuantity >= parentOrderQuantity && filledOrders.size() >= 3) {
-            logger.info("[STRETCH-ALGO] Total filled quantity has reached the target of " + totalFilledQuantity + ". No more actions required.");
-            return NoAction;
-        }
-
-        // 3 Stop if we've reached the max number of child orders (active + cancelled) or the market is closed
-        if (allChildOrders.size() >= maxOrders || isMarketClosed() == true) {
-            logger.info("[STRETCH-ALGO] Maximum number of child orders created: " + allChildOrders.size() + " Or Market is closed: " + isMarketClosed() +" UK local time");
-            return NoAction;
-        }
-
-        // 4. Ensure 3 active orders are on the market
-        if (filledOrders.size() < 3 && activeChildOrders.size() < 3 && totalFilledQuantity < parentOrderQuantity) {
-            logger.info("[STRETCH-ALGO] Creating new child order to maintain 3 active orders, want 3, have: " + activeNonFilledOrders);
-            long price = bestBid.price;
-            return new CreateChildOrder(Side.BUY, childOrderQuantity, price);
-        }
-
-        // 5. Need to account for partially filled order when creating new orders!
-        // perhaps use the old logic that you create new orders with 100 - old order placed on the market to ensure that 100 is always on the market
-
-        logger.info("[STRETCH-ALGO] No action to take");
-        return NoAction;
+      return orderLevelsList;
     }
 
-    // Method to see when the order book is closed
-    public boolean isMarketClosed() {
-        ZonedDateTime timeNow = ZonedDateTime.now(LONDON_TIME_ZONE); // Define London time zone & the present time
-        LocalDate today = LocalDate.now(LONDON_TIME_ZONE); // Declare today's date according to London's time zone
-        ZonedDateTime marketCloseDateTime = ZonedDateTime.of(today, MARKET_CLOSE_TIME, LONDON_TIME_ZONE); // Declare market closing conditions
-        ZonedDateTime marketOpenDateTime = ZonedDateTime.of(today, MARKET_OPEN_TIME, LONDON_TIME_ZONE);  // Declare market opening conditions
+    public class OrderBookLevel{
+        public final long price;
+        public final long quantity;
 
-        // Deduce if the current time is before opening, after closing, or on a weekend - we will ignore holidays for now (could create a list/map of holiday
-        if (timeNow.isBefore(marketOpenDateTime) || timeNow.isAfter(marketCloseDateTime) || timeNow.isEqual(marketCloseDateTime) || today.getDayOfWeek() == DayOfWeek.SATURDAY || today.getDayOfWeek() == DayOfWeek.SUNDAY) {
-            return true; // Market is closed @ or after 4.30pm
+        public OrderBookLevel(long price, long quantity) {
+            this.price = price;
+            this.quantity = quantity;
         }
-        // Otherwise return false
-        return false; // Market is open
     }
+
+    public List<Double> calculateWeightedMovingAverage(SimpleAlgoState state){
+        List<Double> movingAverageList = new ArrayList<>(); // list to store moving averages as orders are placed on the market
+        // Collections work with reference types not primitive data (i.e. Double uses here instead of double)
+        List<OrderBookLevel> orderLevels = getListOfOrderLevels(state); // get order levels
+
+        long totalQuantityAccumulated = 0;
+        double weightedSum = 0;
+
+        for(OrderBookLevel orderLevel : orderLevels) { // loop through the order levels to calculate WMA
+            totalQuantityAccumulated += orderLevel.quantity;
+            weightedSum += (orderLevel.price * orderLevel.quantity);
+            // Calculate weighted average after each new order comes in
+            if (totalQuantityAccumulated > 0) {
+                double weightedAverage = weightedSum / totalQuantityAccumulated;
+                movingAverageList.add(weightedAverage);
+            }
+        }
+        System.out.println(movingAverageList);
+        return movingAverageList;
+    }
+
+    // Method to determine market trend by comparing weighted averages between orders
+    public double evaluateMarketTrend(List<Double> movingAverageList){
+        double movingAverageDifference;
+        int movingAverageCount = movingAverageList.size();
+        movingAverageDifference = movingAverageList.get(movingAverageCount - 1) - movingAverageList.get(movingAverageCount - 2);
+
+        return movingAverageDifference;
+    }
+
+
+    // Feedback:
+        // Separate the calculation of bids & asks averages
+        // Think about exceptions thrown when declaring
+        // How do you keep account of profit!!
+            // maybe by keeping track of what
+        // actually test : unit test for calculation of averages and back tests for the creation of orders
+        // limit orders on the market to a value too
 
 }

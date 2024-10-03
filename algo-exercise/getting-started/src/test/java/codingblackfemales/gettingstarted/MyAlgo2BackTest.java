@@ -25,7 +25,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 
-public class StretchAlgoBackTest extends SequencerTestCase {
+public class MyAlgo2BackTest extends SequencerTestCase {
 
     private final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder();
     private final BookUpdateEncoder encoder = new BookUpdateEncoder();
@@ -48,7 +48,7 @@ public class StretchAlgoBackTest extends SequencerTestCase {
 
         container = new AlgoContainer(new MarketDataService(runTrigger), new OrderService(runTrigger), runTrigger, actioner);
         //set my algo logic
-        container.setLogic(new StretchAlgoLogic());
+        container.setLogic(new MyAlgoLogic2());
 
         network.addConsumer(new LoggingConsumer());
         network.addConsumer(book);
@@ -146,7 +146,7 @@ public class StretchAlgoBackTest extends SequencerTestCase {
 
     @Test // This tests according to real time when the stock exchange is open/closed
     public void testExampleBackTest() throws Exception {
-        StretchAlgoLogic stretchInstance = new StretchAlgoLogic();
+        MyAlgoLogic2 stretchInstance = new MyAlgoLogic2();
 
         //create a sample market data tick....
         send(createSampleMarketDataTick());
@@ -163,7 +163,7 @@ public class StretchAlgoBackTest extends SequencerTestCase {
 
         if (stretchInstance.isMarketClosed()) {
             long filledQuantity = container.getState().getChildOrders().stream().map(ChildOrder::getFilledQuantity).reduce(Long::sum).get();
-            assertEquals(225, filledQuantity); // assert our orders have been filled if market is still open when second tick is sent
+            assertEquals(300, filledQuantity); // assert our orders have been filled if market is still open when second tick is sent
         } else {
             assertTrue(container.getState().getActiveChildOrders().isEmpty()); // assert that active orders have been cancelled if market closes after sending second tick
         }
@@ -172,7 +172,7 @@ public class StretchAlgoBackTest extends SequencerTestCase {
     @Test
     public void testOrdersAreNotCancelledWhenMarketIsForcedOpen() throws Exception {
         // force market to be open by using an instance of the algo class and override the
-        StretchAlgoLogic stretchInstanceForceMarketOpen = new StretchAlgoLogic() {
+        MyAlgoLogic2 stretchInstanceForceMarketOpen = new MyAlgoLogic2() {
             @Override
             public boolean isMarketClosed() {
                 return false;

@@ -73,7 +73,7 @@ public class MyAlgoLogic implements AlgoLogic {
 
 
         // 1.2 Stop if total filled quantity meets the parent order quantity and there are 3 fully filled orders
-        if (totalFilledQuantity >= parentOrderQuantity && filledOrders.size() >= 3) {
+        if (totalFilledQuantity >= parentOrderQuantity && filledOrders.size() >= maxOrders) {
             logger.info("[MY-ALGO] Total filled quantity has reached the target of " + totalFilledQuantity + ". No more actions required.");
             return NoAction;
         }
