@@ -1,11 +1,13 @@
-import { Placeholder } from "../placeholder";
-//import { useMarketDepthData } from "./useMarketDepthData";
-//import { schemas } from "../../data/algo-schemas";
+// import { Placeholder } from "../placeholder";
+import { useMarketDepthData } from "./useMarketDepthData";
+import { schemas } from "../../data/algo-schemas";
+import {MarketDepthPanel} from './MarketDepthPanel';
+
 
 // prettier-ignore
 // const testData: MarketDepthRow[] = [
-//   { symbolLevel:"1230", level: 0, bid: 1000, bidQuantity: 500, offer: 1010, offerQuantity: 700 },
-//   { symbolLevel:"1231", level: 1, bid: 990, bidQuantity: 700, offer: 1012, offerQuantity: 400 },
+//   { symbolLevel:"1230", level: 0, bid: 1000, bidQuantity: 500, offer: 1020, offerQuantity: 700 },
+//   { symbolLevel:"1231", level: 1, bid: 980, bidQuantity: 700, offer: 1012, offerQuantity: 400 },
 //   { symbolLevel:"1232", level: 2, bid: 985, bidQuantity: 1200, offer: 1013, offerQuantity: 800 },
 //   { symbolLevel:"1233", level: 3, bid: 984, bidQuantity: 1300, offer: 1018, offerQuantity: 750 },
 //   { symbolLevel:"1234", level: 4, bid: 970, bidQuantity: 800, offer: 1021, offerQuantity: 900 },
@@ -20,6 +22,9 @@ import { Placeholder } from "../placeholder";
  * TODO
  */
 export const MarketDepthFeature = () => {
-  // const data = useMarketDepthData(schemas.prices);
-  return <Placeholder />;
+  const data = useMarketDepthData(schemas.prices);
+  return <MarketDepthPanel data={data}/>;
+  // return <Placeholder />;
+
 };
+
