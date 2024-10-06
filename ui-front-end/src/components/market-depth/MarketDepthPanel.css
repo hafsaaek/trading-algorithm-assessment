@@ -5,9 +5,7 @@
     margin: auto;
     font-family: 'Segoe UI', sans-serif;
     max-width: 700px;
-    max-height:1px;
     box-shadow: 0px 2px 10px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
     background-color: #fefefe;
 }
 

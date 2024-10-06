@@ -24,9 +24,9 @@ export const PriceCell = (props: PriceCellProps) => {
             } else {
                 setArrowSymbol(""); // No change - do nothing
             }
+        }
         // declare previous price here and update it everytime the useEffect 
         previousPrice.current = price;
-        }
     }, 
     
     [price]); // dependecy prop: useEffect logic is triggered when price changes
