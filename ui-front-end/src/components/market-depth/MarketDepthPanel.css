@@ -7,6 +7,8 @@
     max-width: 700px;
     box-shadow: 0px 2px 10px rgba(0, 0, 0, 0.1);
     background-color: #fefefe;
+    display: block;  
+    overflow-y: auto  /* allows for vertical scrolling within the table */
 }
 
 .MarketDepthPanel th{
