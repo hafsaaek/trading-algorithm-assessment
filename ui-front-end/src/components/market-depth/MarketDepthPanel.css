@@ -1,0 +1,86 @@
+.MarketDepthPanel {
+    /*... your css here */
+    width: 100%;
+    border-collapse: collapse;
+    margin: auto;
+    font-family: 'Segoe UI', sans-serif;
+    max-width: 700px;
+    max-height:1px;
+    box-shadow: 0px 2px 10px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    background-color: #fefefe;
+}
+
+.MarketDepthPanel th{
+    font-weight:bold;
+
+}
+
+.MarketDepthPanel th,
+.MarketDepthPanel td {
+    border: 2px solid #dddddd;
+    padding: 5px;
+    text-align: center;
+    font-size: 13.5px; 
+    font-size: 14px;
+
+}
+
+  /* Index column */
+  .MarketDepthPanel td:nth-child(1) {
+    width: 3%; 
+    }
+
+
+/* Quantity columns */
+.MarketDepthPanel td:nth-child(2),
+.MarketDepthPanel td:nth-child(5) {
+    width: 15%; 
+    }
+.bid-bar, .ask-bar {
+    color: white;
+    height: 20px;
+    line-height: 20px;
+    white-space: nowrap;
+    border-radius: 4px;
+    padding: 2px 5px; /* padding for readibility */
+    max-width: 98.5%; /* ensure that the largest quantity doesn't take up all the space in the cell*/
+    min-width: 30px;  /* ensure smaller quantities are visible*/
+  }
+  .bid-bar {
+    background-color: #4887bb;
+    padding-right: 5px;
+    text-align: right;
+    margin-right: 5px;
+    float: right;
+  }
+  .ask-bar {
+    background-color: #e12e2e;
+    padding-left: 5px;
+    text-align: left;
+    margin-left: 5px;
+    float: left;
+  }
+     
+
+/* Price columns */
+.MarketDepthPanel td:nth-child(3),
+.MarketDepthPanel td:nth-child(4) {
+    width: 8%; 
+    }
+/* Arrows Styling in Price Columns: add colours */
+.arrow-up {
+    color: rgba(23, 170, 28, 0.8); 
+}
+
+.arrow-down {
+    color: rgba(244, 37, 22, 0.8); 
+  
+}
+
+@media (max-width: 768px) {
+    .MarketDepthPanel {
+        width: 100%;
+        font-size: 12px; 
+    }
+}
