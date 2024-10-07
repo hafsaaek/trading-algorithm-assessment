@@ -17,7 +17,12 @@ import java.util.HashMap;
 import java.util.List;
 
 public class StretchAlgoLogic implements AlgoLogic {
-    final int MINIMUM_MOVING_AVERAGES = 6; //
+    final int MINIMUM_BOOK_LEVELS = 6; //
+    final int MAX_CHILD_ORDERS = 3;
+    long childOrderQuantity = 100;
+    long parentOrderQuantity = 300; // buy or sell 300
+    final double TREND_THRESHOLD = 0.5; // use this threshold to avoid algo reacting to small fluctuations in price - prices can only be long so 0.5 is a good measure for a stable market
+    final long SPREAD_THRESHOLD = 3; // hardcoded spread threshold
 
     private static final Logger logger = LoggerFactory.getLogger(StretchAlgoLogic.class);
 
@@ -35,72 +40,70 @@ public class StretchAlgoLogic implements AlgoLogic {
 
         List<OrderBookLevel> bidLevels = getOrderBookLevels(state).get("Bid");
         List<OrderBookLevel> askLevels = getOrderBookLevels(state).get("Ask");
+        final BidLevel bestBid = state.getBidAt(0);
+        final AskLevel bestAsk = state.getAskAt(0);
 
-        // get the trend from the weighted moving averages differences
-        double bidMarketTrend = calculateWeightedMovingAverage("Bid",bidLevels);
-        double askMarketTrend = calculateWeightedMovingAverage("Ask",askLevels);
-        logger.info("[STRETCH-ALGO] Bid WMA: {}, Ask WMA: {}", bidMarketTrend, askMarketTrend);
-
-        final int MAX_CHILD_ORDERS = 3;
-        long childOrderQuantity = 100;
-        long parentOrderQuantity = 300; // buy or sell 300
-        final double TREND_THRESHOLD = 0.5; // use this threshold to avoid algo reacting to small fluctuations in price
         List<ChildOrder> allChildOrders = state.getChildOrders(); // list of all child orders (active and non-active)
         long totalFilledQuantity = allChildOrders.stream().mapToLong(ChildOrder::getFilledQuantity).sum(); // sum of quantities of all filled orders
         logger.info("[MY-ALGO] Total Filled Quantity for orders: {}", totalFilledQuantity);
 
         // Return No action if max count of child orders created or parent order filled
-        if (allChildOrders.size() >= MAX_CHILD_ORDERS) {
-            logger.info("[STRETCH-ALGO] Maximum number of orders reached. No action.");
-            return NoAction.NoAction;
-        } else if (totalFilledQuantity >= parentOrderQuantity) {
-            logger.info("[MY-ALGO] Total filled quantity has reached the target of {}. No more actions required.", totalFilledQuantity);
+        if (allChildOrders.size() >= MAX_CHILD_ORDERS || totalFilledQuantity >= parentOrderQuantity) {
+            logger.info("[STRETCH-ALGO] Maximum number of orders: {} reached OR parent desired quantity has been filled {}. Returning No Action.", allChildOrders.size(), totalFilledQuantity);
             return NoAction.NoAction;
         }
 
         // Logic to either sell or buy: buy if MWA diff is stronger than that on the sell side, vice versa for ask side. Otherwise, do nothing if there isn't much fluctuation or the spread is too high
-        logger.info("[STRETCH-ALGO] We have enough orders {} to evaluate the market trend", bidLevels.size() + askLevels.size());
-        final BidLevel bestBid = state.getBidAt(0);
-        final AskLevel bestAsk = state.getAskAt(0);
-        long orderBookSpread = Math.abs(bestAsk.price - bestBid.price);
-        final long SPREAD_THRESHOLD = 3;
-
-        if (bidMarketTrend > TREND_THRESHOLD && askMarketTrend < bidMarketTrend) {
-            logger.info("[STRETCH-ALGO] Prices are expected to increase as WMA is more than 0, best time to place a BUY order. Placing a Child order");
-            long price = bestBid.price;
-            return new CreateChildOrder(Side.BUY, childOrderQuantity, price);
-        } else if (askMarketTrend < TREND_THRESHOLD && askMarketTrend > bidMarketTrend) {
-            logger.info("[STRETCH-ALGO] Prices are expected to fall as WMA is less than 0, best time to place a SELL order. Placing a Child order");
-            long price = bestAsk.price;
-            return new CreateChildOrder(Side.SELL, childOrderQuantity, price);
-        } else if (orderBookSpread >= SPREAD_THRESHOLD) {
-            logger.info("[STRETCH-ALGO] Order book spread is larger than or equal to 3. Market too volatile to place an order.");
-            return NoAction.NoAction;
+        if(bidLevels.size() >= MINIMUM_BOOK_LEVELS && askLevels.size() >= MINIMUM_BOOK_LEVELS) {
+            logger.info("[STRETCH-ALGO] We have {} bids and {} asks to evaluate the market trend", bidLevels.size(), askLevels.size());
+            // get the trend from the weighted moving averages differences
+            double bidMarketTrend = Math.abs(evaluateTrendUsingMWA("Bid",bidLevels));
+            double askMarketTrend = Math.abs(evaluateTrendUsingMWA("Ask",askLevels));
+            long orderBookSpread = Math.abs(bestAsk.price - bestBid.price);
+            logger.info("[STRETCH-ALGO] Bid WMA: {}, Ask WMA: {}", bidMarketTrend, askMarketTrend);
+            if (orderBookSpread >= SPREAD_THRESHOLD) {
+                logger.info("[STRETCH-ALGO] Order book spread is currently {} which is equal to or larger than SPREAD_THRESHOLD. Market too volatile to place an order, Returning No Action." ,orderBookSpread);
+                return NoAction.NoAction;
+            } else if (bidMarketTrend > TREND_THRESHOLD && askMarketTrend < bidMarketTrend) {
+                logger.info("[STRETCH-ALGO] Prices are expected to increase as WMA is more than 0, best time to place a BUY order. Placing a Child order");
+                long price = bestBid.price;
+                return new CreateChildOrder(Side.BUY, childOrderQuantity, price);
+            } else if (askMarketTrend > TREND_THRESHOLD && askMarketTrend > bidMarketTrend) {
+                logger.info("[STRETCH-ALGO] Prices are expected to fall as WMA is less than 0, best time to place a SELL order. Placing a Child order");
+                long price = bestAsk.price;
+                return new CreateChildOrder(Side.SELL, childOrderQuantity, price);
+            }  // introduce a condition to account for when the market is stable
+            else if (bidMarketTrend < TREND_THRESHOLD && askMarketTrend < TREND_THRESHOLD) { // stable criteria
+                logger.info("[STRETCH-ALGO] Market is stable, holding off placing orders for the meantime. Returning No Action.");
+                return NoAction.NoAction;
+            }
+        } else{
+            logger.info("[STRETCH-ALGO] We do not have enough orders to evaluate the market trend, there are currently {} bids and {} asks", bidLevels.size(), askLevels.size());
         }
-        logger.info("[STRETCH-ALGO] Market is stable, holding off placing orders for the meantime");
+
         return NoAction.NoAction;
     }
 
     public HashMap<String, List<OrderBookLevel>> getOrderBookLevels(SimpleAlgoState state) {
-        List<OrderBookLevel> BidMarketOrders = new ArrayList<>(); // initialise an empty list of orderLevel Objects
-        List<OrderBookLevel> AskMarketOrders = new ArrayList<>(); // initialise an empty list of orderLevel Objects
+        List<OrderBookLevel> bidMarketOrders = new ArrayList<>(); // initialise an empty list of orderLevel Objects
+        List<OrderBookLevel> askMarketOrders = new ArrayList<>(); // initialise an empty list of orderLevel Objects
 
         int maxCountOfLevels = Math.max(state.getAskLevels(), state.getBidLevels()); // get max number of levels in order book
 
         for (int i =0; i < maxCountOfLevels; i++) {
             if (state.getBidLevels() > i) { // if there are bid orders --> get the first level price & quantity
                 BidLevel bidLevel =  state.getBidAt(i);
-                BidMarketOrders.add(new OrderBookLevel(bidLevel.price, bidLevel.quantity)); // Create a new OrderBookLevel for bid side
+                bidMarketOrders.add(new OrderBookLevel(bidLevel.price, bidLevel.quantity)); // Create a new OrderBookLevel for bid side
             }
             if (state.getAskLevels() > i) { // if there are ask orders --> get the first level price & quantity
                 AskLevel askLevel =  state.getAskAt(i);
-                AskMarketOrders.add(new OrderBookLevel(askLevel.price, askLevel.quantity)); // Create a new OrderBookLevel for ask side
+                askMarketOrders.add(new OrderBookLevel(askLevel.price, askLevel.quantity)); // Create a new OrderBookLevel for ask side
             }
         }
         // to allow us to return both list sin the same method - a hashmap will be used (time complexity of o(1) - easier to lookup
         HashMap<String, List<OrderBookLevel>> orderBookMap = new HashMap<>();
-        orderBookMap.put("Bid", BidMarketOrders);
-        orderBookMap.put("Ask", AskMarketOrders);
+        orderBookMap.put("Bid", bidMarketOrders);
+        orderBookMap.put("Ask", askMarketOrders);
 
         return orderBookMap;
     }
@@ -115,24 +118,16 @@ public class StretchAlgoLogic implements AlgoLogic {
         }
     }
 
-    public double calculateWeightedMovingAverage(String side, List<OrderBookLevel> ordersList){
+    public double evaluateTrendUsingMWA(String side, List<OrderBookLevel> ordersList){
         if (ordersList.isEmpty()) {
             logger.warn("[STRETCH-ALGO] No {} levels available.", side);
         }
         
-        // Calculate the weighted moving averages
-        List<Double> movingAverages = new ArrayList<>();
-        long totalQuantityAccumulated = 0;
-        double weightedSum = 0;
-        for(OrderBookLevel order : ordersList) { // loop through the order levels to calculate WMA
-            totalQuantityAccumulated += order.quantity;
-            weightedSum += (order.price * order.quantity);
-            if (totalQuantityAccumulated > 0) {
-                double weightedAverage = Math.round((weightedSum / totalQuantityAccumulated) * 100.0) / 100.0;
-                movingAverages.add(weightedAverage);
-            }
-        }
-        if (movingAverages.size() < MINIMUM_MOVING_AVERAGES) { // Ensures we have 5 differences to evaluate trend
+        // Get the weighted moving averages
+        List<Double> movingAverages = getMovingAverages(ordersList);
+        System.out.printf("Moving averages list: %s on %s side%n", movingAverages, side);
+
+        if (movingAverages.size() < MINIMUM_BOOK_LEVELS) { // Ensures we have 5 differences to evaluate trend
             logger.warn("[STRETCH-ALGO] Insufficient moving averages to calculate trend on the {} side.", side);
             return 0.0;  // No trend
         }
@@ -144,9 +139,27 @@ public class StretchAlgoLogic implements AlgoLogic {
         return sumOfDifferences; // return weighted average or 0 if totalQuantityAccumulated =< 0
     }
 
+    private List<Double> getMovingAverages(List<OrderBookLevel> ordersList) {
+        List<Double> movingAverages = new ArrayList<>();
+        long totalQuantityAccumulated = 0;
+        double weightedSum = 0;
+        for(OrderBookLevel order : ordersList) { // loop through the order levels to calculate WMA
+            totalQuantityAccumulated += order.quantity;
+            weightedSum += (order.price * order.quantity);
+            if (totalQuantityAccumulated > 0) {
+                double weightedAverage = Math.round((weightedSum / totalQuantityAccumulated) * 100.0) / 100.0;
+                movingAverages.add(weightedAverage);
+            }
+        }
+        return movingAverages;
+    }
+
 
     // To Do list
-        // 1. Rewrite logic helper text
-        // 2. Separate method
-        // 3. Think about profit
+        // 1. Rewrite logic helper text DONE
+        // 2. Separate method that calculates moving averages and overall trend DONE
+        // 3. What to do if bid trend is increasing and ask is decreasing at the same rate? IG this is the same as widening spread so
+        // 4. Think about profit tracking - what is the point of this:
+//                - subtract orders that have been filled (what you sold - bought)
+        // 5.
 }

@@ -145,8 +145,15 @@ public class MyAlgo2BackTest extends SequencerTestCase {
     }
 
     @Test // This tests according to real time when the stock exchange is open/closed
-    public void testExampleBackTest() throws Exception {
-        MyAlgoLogic2 stretchInstance = new MyAlgoLogic2();
+    public void testOrderOnMarketWhenMarketIsOpen() throws Exception {
+        MyAlgoLogic2 stretchInstance = new MyAlgoLogic2(){
+            @Override
+            public boolean isMarketClosed() {
+                return true;
+            }
+        };
+
+        container.setLogic(stretchInstance);
 
         //create a sample market data tick....
         send(createSampleMarketDataTick());
