@@ -53,7 +53,7 @@ public class MyAlgoLogic implements AlgoLogic {
 
         List<ChildOrder> allChildOrders = state.getChildOrders(); // list of all child orders (active and non-active)
         List<ChildOrder> activeChildOrders = state.getActiveChildOrders(); // active child orders only (non cancelled ones)
-        List<ChildOrder> filledOrders = new ArrayList<>(); // to store  filled cancelled orders
+        List<ChildOrder> filledOrders = new ArrayList<>(); // to store  filled orders
         int activeNonFilledOrders = activeChildOrders.size() - filledOrders.size();
 
 
