@@ -126,7 +126,7 @@ public class StretchAlgoBackTest extends SequencerTestCase {
         send(createTick());
 
         //ADD asserts when you have implemented your algo logic
-        //assertEquals(container.getState().getChildOrders().size(), 3);
+//        assertEquals(container.getState().getChildOrders().size(), 3);
 
         //when: market data moves towards us
         send(createTick2());
@@ -142,3 +142,5 @@ public class StretchAlgoBackTest extends SequencerTestCase {
 
 
 }
+
+// Test your logic is making money by comparing what you have filled - for Back tests

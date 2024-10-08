@@ -45,7 +45,6 @@ public class StretchAlgoLogic implements AlgoLogic {
 
         List<ChildOrder> allChildOrders = state.getChildOrders(); // list of all child orders (active and non-active)
         long totalFilledQuantity = allChildOrders.stream().mapToLong(ChildOrder::getFilledQuantity).sum(); // sum of quantities of all filled orders
-        logger.info("[MY-ALGO] Total Filled Quantity for orders: {}", totalFilledQuantity);
 
         // Return No action if max count of child orders created or parent order filled
         if (allChildOrders.size() >= MAX_CHILD_ORDERS || totalFilledQuantity >= parentOrderQuantity) {
@@ -56,6 +55,7 @@ public class StretchAlgoLogic implements AlgoLogic {
         // Logic to either sell or buy: buy if MWA diff is stronger than that on the sell side, vice versa for ask side. Otherwise, do nothing if there isn't much fluctuation or the spread is too high
         if(bidLevels.size() >= MINIMUM_BOOK_LEVELS && askLevels.size() >= MINIMUM_BOOK_LEVELS) {
             logger.info("[STRETCH-ALGO] We have {} bids and {} asks to evaluate the market trend", bidLevels.size(), askLevels.size());
+            logger.info("[MY-ALGO] FilledQuantity Tracker: Total Filled Quantity for orders so far is: {}", totalFilledQuantity);
             // get the trend from the weighted moving averages differences
             double bidMarketTrend = Math.abs(evaluateTrendUsingMWA("Bid",bidLevels));
             double askMarketTrend = Math.abs(evaluateTrendUsingMWA("Ask",askLevels));
