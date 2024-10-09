@@ -140,6 +140,11 @@ public class StretchAlgoBackTest extends SequencerTestCase {
         //assertEquals(225, filledQuantity);
     }
 
+    // 1st test: test you can make profits when market is good to buy
+    // logic: bid prices are increasing - select best bid from first tick - 3 orders are created - on side BUY - - send tick that should ensure orders are not created (stable market) -  send a tick that favours buying low - (increasing bid prices, falling ask prices) - check orders have been filled - check profit is being made (check price executed at) - profit should be price order placed on - price actually bought at - check MWA calculations - send tick that favours creating sell orders and asser no new orders are created - assert more orders are filled
+
+    // 2nd test - same as above but for sell
+
 
 }
 

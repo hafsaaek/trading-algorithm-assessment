@@ -200,12 +200,12 @@ public  class StretchAlgoTest extends SequencerTestCase {
                 .next().price(93L).size(200L)
                 .next().price(92L).size(300L);
         encoder.askBookCount(6)
+                .next().price(98L).size(100L)
+                .next().price(97L).size(100L)
                 .next().price(96L).size(100L)
-                .next().price(96L).size(100L)
-                .next().price(96L).size(100L)
-                .next().price(96L).size(100L)
-                .next().price(96L).size(100L)
-                .next().price(96L).size(100L);
+                .next().price(95L).size(100L)
+                .next().price(93L).size(100L)
+                .next().price(94L).size(100L);
         encoder.instrumentStatus(InstrumentStatus.CONTINUOUS);
 
         return directBuffer;

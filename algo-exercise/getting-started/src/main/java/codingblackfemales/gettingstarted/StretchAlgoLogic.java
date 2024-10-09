@@ -42,6 +42,9 @@ public class StretchAlgoLogic implements AlgoLogic {
         List<OrderBookLevel> askLevels = getOrderBookLevels(state).get("Ask");
         final BidLevel bestBid = state.getBidAt(0);
         final AskLevel bestAsk = state.getAskAt(0);
+        final AskLevel bestAsk1 = state.getAskAt(1);
+        final AskLevel bestAsk2 = state.getAskAt(2);
+        logger.info("[STRETCH-ALGO] ask prices prices 0, 1, 2: {} {} {}", bestAsk.price, bestAsk1.price, bestAsk2.price);
 
         List<ChildOrder> allChildOrders = state.getChildOrders(); // list of all child orders (active and non-active)
         long totalFilledQuantity = allChildOrders.stream().mapToLong(ChildOrder::getFilledQuantity).sum(); // sum of quantities of all filled orders
@@ -57,18 +60,22 @@ public class StretchAlgoLogic implements AlgoLogic {
             logger.info("[STRETCH-ALGO] We have {} bids and {} asks to evaluate the market trend", bidLevels.size(), askLevels.size());
             logger.info("[MY-ALGO] FilledQuantity Tracker: Total Filled Quantity for orders so far is: {}", totalFilledQuantity);
             // get the trend from the weighted moving averages differences
-            double bidMarketTrend = Math.abs(evaluateTrendUsingMWA("Bid",bidLevels));
-            double askMarketTrend = Math.abs(evaluateTrendUsingMWA("Ask",askLevels));
+            double bidMarketTrend = evaluateTrendUsingMWA("Bid",bidLevels);
+            double askMarketTrend = evaluateTrendUsingMWA("Ask",askLevels);
             long orderBookSpread = Math.abs(bestAsk.price - bestBid.price);
             logger.info("[STRETCH-ALGO] Bid WMA: {}, Ask WMA: {}", bidMarketTrend, askMarketTrend);
+            //
             if (orderBookSpread >= SPREAD_THRESHOLD) {
                 logger.info("[STRETCH-ALGO] Order book spread is currently {} which is equal to or larger than SPREAD_THRESHOLD. Market too volatile to place an order, Returning No Action." ,orderBookSpread);
                 return NoAction.NoAction;
-            } else if (bidMarketTrend > TREND_THRESHOLD && askMarketTrend < bidMarketTrend) {
+            } // We are buying when bid prices are expected to increase and ask prices are falling (to allow us to buy cheap)
+                // profit == bestBid - lowest ask offer
+            else if (bidMarketTrend > TREND_THRESHOLD && askMarketTrend < TREND_THRESHOLD) {
                 logger.info("[STRETCH-ALGO] Prices are expected to increase as WMA is more than 0, best time to place a BUY order. Placing a Child order");
                 long price = bestBid.price;
                 return new CreateChildOrder(Side.BUY, childOrderQuantity, price);
-            } else if (askMarketTrend > TREND_THRESHOLD && askMarketTrend > bidMarketTrend) {
+            } // We will sell when bid prices are increasing (to sell high) and ask
+            else if (askMarketTrend > TREND_THRESHOLD && askMarketTrend > bidMarketTrend) {
                 logger.info("[STRETCH-ALGO] Prices are expected to fall as WMA is less than 0, best time to place a SELL order. Placing a Child order");
                 long price = bestAsk.price;
                 return new CreateChildOrder(Side.SELL, childOrderQuantity, price);
