@@ -4,6 +4,7 @@ import { VuuDataRow } from "@vuu-ui/vuu-protocol-types";
 import { ColumnMap, buildColumnMap } from "@vuu-ui/vuu-utils";
 import { useDataSource } from "@vuu-ui/vuu-shell";
 
+// review the /data component 
 export type MarketDepthRow = {
   symbolLevel: string;
   offer: number;

@@ -8,30 +8,30 @@ registerComponent("PricesTable", PricesTable, "view");
 registerComponent("Flexbox", Flexbox, "container");
 
 export const layoutJSON = {
-  type: "Flexbox",
+  type: "Flexbox", // vertical component of 3 chilren, the 1st table, your table
   props: {
     splitterSize: false,
     style: {
       flexDirection: "column",
     },
   },
-  children: [
+  children: [ // the table containting random data generator 
     {
       type: "View",
       props: {
         resizeable: true,
         style: {
-          flexBasis: 0,
-          flexGrow: 1,
-          flexShrink: 1,
-          height: "auto",
+          // flexBasis: 0,
+          // flexGrow: 1,
+          // flexShrink: 1,
+          height: 270,
           width: "auto",
         },
       },
-      children: [{ type: "PricesTable" }],
+      children: [{ type: "PricesTable" }], // the table containting random data generator 
     },
     {
-      type: "View",
+      type: "View", // not sure what this is this
       props: {
         resizeable: true,
         style: {
@@ -42,7 +42,7 @@ export const layoutJSON = {
           width: "auto",
         },
       },
-      children: [{ type: "MarketDepthFeature" }],
+      children: [{ type: "MarketDepthFeature" }], // your own table - could edit your table properties here too!
     },
   ],
 };

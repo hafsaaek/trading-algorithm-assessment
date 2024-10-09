@@ -22,7 +22,7 @@ import {MarketDepthPanel} from './MarketDepthPanel';
  * TODO
  */
 export const MarketDepthFeature = () => {
-  const data = useMarketDepthData(schemas.prices);
+  const data = useMarketDepthData(schemas.prices);  // custom hook - data is fed in 
   return <MarketDepthPanel data={data}/>;
   // return <Placeholder />;
 

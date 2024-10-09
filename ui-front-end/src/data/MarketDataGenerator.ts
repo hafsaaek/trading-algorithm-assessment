@@ -2,7 +2,9 @@ import { Table } from "@vuu-ui/vuu-data-test";
 import { VuuRange } from "@vuu-ui/vuu-protocol-types";
 import { generateMarketDepth } from "./data-utils";
 
-const UPDATE_FREQUENCY = 250;
+// this is all part of the testDataProvider
+
+const UPDATE_FREQUENCY = 250; // data is generated every 1/4 of a second 
 
 interface UpdateGenerator {
   setTable: (table: Table) => void;
