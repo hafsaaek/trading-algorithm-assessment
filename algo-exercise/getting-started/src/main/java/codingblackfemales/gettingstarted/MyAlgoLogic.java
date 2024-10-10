@@ -31,7 +31,7 @@ public class MyAlgoLogic implements AlgoLogic {
 
         /********
         * Trading Algorithm Logic:
-            * 1. Maintain 3 active child orders on the market, each for 100 shares, to fill a parent order of 300 shares.
+            * 1. Maintain 3 active child orders on the market, each for 100 shares, to fill a parent order of 300 shares (Market Order).
             * 2. Create new child orders if active orders are less than 3.
             * 3. Cancel the oldest active order when there are 3 or more active orders.
             * 4. Stop placing new orders if:
@@ -53,9 +53,7 @@ public class MyAlgoLogic implements AlgoLogic {
 
         List<ChildOrder> allChildOrders = state.getChildOrders(); // list of all child orders (active and non-active)
         List<ChildOrder> activeChildOrders = state.getActiveChildOrders(); // active child orders only (non cancelled ones)
-        List<ChildOrder> filledOrders = new ArrayList<>(); // to store  filled cancelled orders
-        int activeNonFilledOrders = activeChildOrders.size() - filledOrders.size();
-
+        List<ChildOrder> filledOrders = new ArrayList<>(); // to store  filled orders
 
         // 1. Prioritise retuning NO action to ensure the program checks when to stop before doing anything else
         // 1.1 Find filled active orders & deduce total filled quantity
@@ -64,45 +62,35 @@ public class MyAlgoLogic implements AlgoLogic {
                 filledOrders.add(activeChildOrder);
             }
         }
-        logger.info("[MY-ALGO] Filled Orders Count: " + filledOrders.size());
+        logger.info("[MY-ALGO] Filled Orders Count: {}", filledOrders.size());
 
         long totalFilledQuantity = allChildOrders.stream()
                 .mapToLong(ChildOrder::getFilledQuantity)
                 .sum(); // sum of quantities of all filled orders
-        logger.info("[MY-ALGO] Total Filled Quantity for orders: " + totalFilledQuantity);
+        logger.info("[MY-ALGO] Total Filled Quantity for orders: {}", totalFilledQuantity);
 
 
-        // 1.2 Stop if total filled quantity meets the parent order quantity and there are 3 fully filled orders
-        if (totalFilledQuantity >= parentOrderQuantity && filledOrders.size() >= maxOrders) {
-            logger.info("[MY-ALGO] Total filled quantity has reached the target of " + totalFilledQuantity + ". No more actions required.");
+        // 1.2 Stop if total filled quantity meets the parent order quantity or max orders have been created
+        if (totalFilledQuantity >= parentOrderQuantity|| allChildOrders.size() >= maxOrders) {
+            logger.info("[MY-ALGO] Total filled quantity has reached the target of {} or Maximum number of child orders created: {}. No more actions required.", totalFilledQuantity, allChildOrders.size());
             return NoAction;
         }
-
-        // 1.3 Stop if we've reached the max number of child orders (active + cancelled)
-        if (allChildOrders.size() >= maxOrders) {
-            logger.info("[MY-ALGO] Maximum number of child orders created: " + allChildOrders.size());
-            return NoAction;
-        }
-
 
         // 2. Ensure 3 active orders are on the market if none have been filled
-        if (filledOrders.size() < 3 && activeChildOrders.size() < 3 && totalFilledQuantity < parentOrderQuantity) {
-            logger.info("[MY-ALGO] Creating new child order to maintain 3 active orders, want 3, have: " + activeNonFilledOrders);
+        int activeNonFilledOrders = activeChildOrders.size() - filledOrders.size();
+        if (filledOrders.size() < maxOrdersOnMarket && activeChildOrders.size() < maxOrdersOnMarket && totalFilledQuantity < parentOrderQuantity) {
+            logger.info("[MY-ALGO] Creating new child order to maintain 3 active orders, want 3, have: {}", activeNonFilledOrders);
             long price = bestBid.price;
             return new CreateChildOrder(Side.BUY, childOrderQuantity, price);
         }
 
-
          // 3. If there are active orders more than 3, cancel the oldest order
         if (filledOrders.isEmpty() && activeNonFilledOrders >= 3) {
             ChildOrder nonFilledOrderToCancel = activeChildOrders.get(0); // stream & filter to active but not filled orders!
-            logger.info("[MY-ALGO] Cancelling order: " + nonFilledOrderToCancel);
-            logger.info("[MY-ALGO] Order State: " + nonFilledOrderToCancel.getState());
+            logger.info("[MY-ALGO] Cancelling order: {}", nonFilledOrderToCancel);
+            logger.info("[MY-ALGO] Order State: {}", nonFilledOrderToCancel.getState());
             return new CancelChildOrder(nonFilledOrderToCancel);
         }
-
-        // 4. Need to account for partially filled order when creating new orders!
-        // perhaps use the old logic that you create new orders with 100 - old order placed on the market to ensure that 100 is always on the market
 
         logger.info("[MY-ALGO] No action to take");
         return NoAction;

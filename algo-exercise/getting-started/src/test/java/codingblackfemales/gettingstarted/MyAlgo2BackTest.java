@@ -145,23 +145,30 @@ public class MyAlgo2BackTest extends SequencerTestCase {
     }
 
     @Test // This tests according to real time when the stock exchange is open/closed
-    public void testExampleBackTest() throws Exception {
-        MyAlgoLogic2 stretchInstance = new MyAlgoLogic2();
+    public void testOrderOnMarketWhenMarketIsOpen() throws Exception {
+        MyAlgoLogic2 stretchInstance = new MyAlgoLogic2(){
+            @Override
+            public boolean isMarketClosed() {
+                return true;
+            }
+        };
+
+        container.setLogic(stretchInstance);
 
         //create a sample market data tick....
         send(createSampleMarketDataTick());
 
-        if (stretchInstance.isMarketClosed()) {
+        if (!stretchInstance.isMarketClosed()) { // if market is open --> 3 orders should be on the market
             assertEquals(container.getState().getChildOrders().size(), 3);  //simple assert to check we had 3 orders created if market is open
             assertEquals(container.getState().getActiveChildOrders().size(), 3);  // assert to check we had 3 active orders on the market is open when the market is not in our favour and the stock exchange is open
-        } else{
+        } else{ // if market is closed --> no orders should be on the market
             assertEquals(container.getState().getChildOrders().size(), 0);
         }
 
         //when: market data moves towards us
         send(createSampleMarketDataTick2());
 
-        if (stretchInstance.isMarketClosed()) {
+        if (!stretchInstance.isMarketClosed()) { // if market is open --> orders should be filled
             long filledQuantity = container.getState().getChildOrders().stream().map(ChildOrder::getFilledQuantity).reduce(Long::sum).get();
             assertEquals(300, filledQuantity); // assert our orders have been filled if market is still open when second tick is sent
         } else {

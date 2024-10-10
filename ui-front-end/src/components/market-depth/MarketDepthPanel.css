@@ -67,7 +67,8 @@
 .MarketDepthPanel td:nth-child(3),
 .MarketDepthPanel td:nth-child(4) {
     width: 8%; 
-    }
+}
+
 /* Arrows Styling in Price Columns: add colours */
 .arrow-up {
     color: rgba(23, 170, 28, 0.8); 

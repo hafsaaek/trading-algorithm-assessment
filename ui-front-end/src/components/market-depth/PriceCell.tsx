@@ -1,16 +1,16 @@
 import { useRef, useEffect, useState } from "react"; // import React hooks
 
 export interface PriceCellProps { 
-    price: number; // expected prop (price) to pass to this component is of type number (e.g., blueprint)
+    price: number; // expected prop (price) to pass to this component is of type number 
 }
 
 export const PriceCell = (props: PriceCellProps) => {
-    const {price} = props; // take the prop to be price using type defined int eh interface
+    const {price} = props; // take the prop to be price using type defined in the interface
 
     const previousPrice = useRef<number | null>(null); // useRef to store the previous price without re-rendering (avoid rendering the compnent when previousPrice changes)
     
-    const [arrowSymbol, setArrowSymbol] = useState<string>(""); // useState to store the arrow symbol and its styling persistently
-    const [arrowClass, setArrowClass] = useState<string>(""); // for styling
+    const [arrowSymbol, setArrowSymbol] = useState(""); // useState to store the arrow symbol and its styling persistently
+    const [arrowClass, setArrowClass] = useState(""); // for styling
 
 
     // useEffect to determine the arrow direction with new changes in prices
@@ -25,7 +25,7 @@ export const PriceCell = (props: PriceCellProps) => {
                 setArrowSymbol(""); // No change - do nothing
             }
         }
-        // declare previous price here and update it everytime the useEffect 
+        // intialise previous price here and update it everytime the useEffect 
         previousPrice.current = price;
     }, 
     
@@ -38,3 +38,4 @@ export const PriceCell = (props: PriceCellProps) => {
         </td>   
     );
 };
+
