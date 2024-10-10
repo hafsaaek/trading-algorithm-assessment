@@ -27,21 +27,25 @@ public class StretchAlgoBackTest2 extends AbstractAlgoBackTest {
 
     @Override
     public AlgoLogic createAlgoLogic() {
-        return new OldStretchAlgoLogic();
+        return new StretchAlgoLogic();
     }
 
     @Test
     public void testPlacingBUYOrdersCreatesProfit() throws Exception {
         //create a sample market data tick....
-//        send(createTick());
         send(createTickBuyLow());
-//        send(createTickBuyLow());
-//        send(createTickBuyLow());
+        send(createTickBuyLow());
+        send(createTickBuyLow());
+        send(createTickBuyLow());
+        send(createTickBuyLow());
+        send(createTickBuyLow());
+
 
         // Assert to check we have created 3 child orders under good buy conditions
         assertEquals(3, container.getState().getChildOrders().size());
         assertEquals(3, container.getState().getActiveChildOrders().size());
         assertTrue(container.getState().getActiveChildOrders().stream().allMatch(childOrder -> childOrder.getSide().toString().equals("BUY")));
+        send(createTickBuyLow());
 
         //then: get the state
         var state = container.getState();
