@@ -144,6 +144,8 @@ public class MyAlgo2BackTest extends SequencerTestCase {
         return directBuffer;
     }
 
+    MyAlgoLogic2 algoInstance = new MyAlgoLogic2();
+
     @Test // This tests according to real time when the stock exchange is open/closed
     public void testOrderOnMarketWhenMarketIsOpen() throws Exception {
         MyAlgoLogic2 stretchInstance = new MyAlgoLogic2(){
@@ -214,9 +216,18 @@ public class MyAlgo2BackTest extends SequencerTestCase {
         //when: market data is not in our favour
         send(createSampleMarketDataTick3());
 
-        // assert tha the orders have been cancelled as local time is past 4.30pm - Day order decision fu-filled
-        assertEquals(container.getState().getActiveChildOrders().size(), 0);
+        if(algoInstance.isMarketClosed()){
+            // assert tha the orders have been cancelled as local time is past 4.30pm - Day order decision fu-filled
+            assertEquals(container.getState().getActiveChildOrders().size(), 0);
+        } else{
+            // assert tha the orders have been not been cancelled if market is open
+            assertEquals(container.getState().getActiveChildOrders().size(), 3);
+            send(createSampleMarketDataTick());
+            assertEquals(container.getState().getChildOrders().size(), 3);
 
+        }
     }
+
+    // Tests: check max orders are created, if one order is filled, 3 are cancelled when market closes, if 2 are filled, 1 is cancelled, if 3 filled, none are cancelled
 }
 

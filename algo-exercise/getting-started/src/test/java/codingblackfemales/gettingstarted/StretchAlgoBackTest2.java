@@ -31,21 +31,25 @@ public class StretchAlgoBackTest2 extends AbstractAlgoBackTest {
     }
 
     @Test
-    public void testPlacingBUYOrdersCreatesProfit() throws Exception {
-        //create a sample market data tick....
-        send(createTickBuyLow());
-        send(createTickBuyLow());
-        send(createTickBuyLow());
-        send(createTickBuyLow());
-        send(createTickBuyLow());
-        send(createTickBuyLow());
-
+    public void testPlacingBuyingConditions() throws Exception {
+        // send 6 market ticks to calculate 6 moving averages
+//        send(createTick());
+        send(createTickBuyLow1());
+        send(createTickBuyLow1());
+        send(createTickBuyLow2());
+        send(createTickBuyLow2());
+        send(createTickBuyLow3());
+        send(createTickBuyLow3());
+        // one last tick
+        send(createTickBuyLow3());
 
         // Assert to check we have created 3 child orders under good buy conditions
         assertEquals(3, container.getState().getChildOrders().size());
         assertEquals(3, container.getState().getActiveChildOrders().size());
         assertTrue(container.getState().getActiveChildOrders().stream().allMatch(childOrder -> childOrder.getSide().toString().equals("BUY")));
-        send(createTickBuyLow());
+
+        // send a tick that would fill out orders
+        send(createTickFillBUYOrders());
 
         //then: get the state
         var state = container.getState();
@@ -53,9 +57,37 @@ public class StretchAlgoBackTest2 extends AbstractAlgoBackTest {
         //Check things like filled quantity, cancelled order count etc....
         long filledQuantity = state.getChildOrders().stream().map(ChildOrder::getFilledQuantity).reduce(Long::sum).get();
         //and: check that our algo state was updated to reflect our fills when the market data
-//        assertEquals(300, filledQuantity);
+        assertEquals(300, filledQuantity);
+    }
 
+    @Test
+    public void testPlacingSellingConditions() throws Exception {
+        // send 6 market ticks to calculate 6 moving averages
+//        send(createTick());
+        send(createTickBuyLow3());
+        send(createTickBuyLow3());
+        send(createTickBuyLow2());
+        send(createTickBuyLow2());
+        send(createTickBuyLow1());
+        send(createTickBuyLow1());
+        // one last tick
+        send(createTickBuyLow1());
 
+        // Assert to check we have created 3 child orders under good buy conditions
+        assertEquals(3, container.getState().getChildOrders().size());
+        assertEquals(3, container.getState().getActiveChildOrders().size());
+        assertTrue(container.getState().getActiveChildOrders().stream().allMatch(childOrder -> childOrder.getSide().toString().equals("SELL")));
+
+        // send a tick that would fill out orders
+        send(createTickFillSELLOrders());
+
+        //then: get the state
+        var state = container.getState();
+
+        //Check things like filled quantity, cancelled order count etc....
+        long filledQuantity = state.getChildOrders().stream().map(ChildOrder::getFilledQuantity).reduce(Long::sum).get();
+        //and: check that our algo state was updated to reflect our fills when the market data
+        assertEquals(300, filledQuantity);
     }
 
 }
