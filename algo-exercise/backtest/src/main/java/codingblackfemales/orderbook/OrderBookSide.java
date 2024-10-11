@@ -62,7 +62,7 @@ public abstract class OrderBookSide {
             } else if (isNewDeepestLevel(levelToVisit, nextLevel, priceToFind)) {
                 OrderBookLevel level = visitor.missingBookLevel(levelToVisit, nextLevel, priceToFind);
                 levelToVisit.last().add(level);
-            }
+            } // TODO: this a bug : what is this is the new highest level?
         }else{
             levelToVisit.accept(visitor, this);
         }
