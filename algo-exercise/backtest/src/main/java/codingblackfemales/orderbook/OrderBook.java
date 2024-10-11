@@ -159,7 +159,7 @@ public class OrderBook extends MarketDataEventListener {
             logger.info("[ORDERBOOK] Adding passive limit order to BID book" + limit);
             this.getBidBookSide().addLimitOrder(limit);
         }else{
-            logger.info("A[ORDERBOOK] dding passive limit order to ASK book" + limit);
+            logger.info("[ORDERBOOK] Adding passive limit order to ASK book" + limit);
             this.getAskBookSide().addLimitOrder(limit);
         }
     }

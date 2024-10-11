@@ -21,7 +21,7 @@ public class Util {
 
         int maxLevels = Math.max(state.getAskLevels(), state.getBidLevels()); // find the max number of rows we need for the order book 
 
-        builder.append(padLeft("|----BID-----", 12) + "|" + padLeft("|----ASK----", 12) + "|" + "\n"); // add BID & ASK to the string 
+        builder.append(padLeft("|----BID-----", 12)).append("|").append(padLeft("|----ASK----", 12)).append("|").append("\n"); // add BID & ASK to the string
 
         // 
         for(int i=0; i<maxLevels; i++){
@@ -30,20 +30,20 @@ public class Util {
                 BidLevel level = state.getBidAt(i);
                 builder.append(padLeft(level.quantity + " @ " + level.price, 12));
             }else{
-                builder.append(padLeft(" - ", 12) + ""); // placeholder if no bid found
+                builder.append(padLeft(" - ", 12)); // placeholder if no bid found
             }
 
             if(state.getAskLevels() > i){
                 AskLevel level = state.getAskAt(i);
                 builder.append(padLeft(level.quantity + " @ " + level.price, 12));
             }else{
-                builder.append(padLeft(" - ", 12) + ""); // placeholder if no ask found
+                builder.append(padLeft(" - ", 12)); // placeholder if no ask found
             }
 
             builder.append("\n");
         }
 
-        builder.append(padLeft("|------------", 12) + "|" + padLeft("|-----------", 12) + "|" + "\n"); // add border to finalise building the orderbook 
+        builder.append(padLeft("|------------", 12)).append("|").append(padLeft("|-----------", 12)).append("|").append("\n"); // add border to finalise building the orderbook
 
         return builder.toString();
     }
