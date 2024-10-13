@@ -54,7 +54,7 @@ public  class StretchAlgoTest extends SequencerTestCase {
     }
 
 
-    protected UnsafeBuffer createTick(){
+    protected UnsafeBuffer createTick0(){
         final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder();
         final BookUpdateEncoder encoder = new BookUpdateEncoder();
         final ByteBuffer byteBuffer = ByteBuffer.allocateDirect(1024);
@@ -95,14 +95,14 @@ public  class StretchAlgoTest extends SequencerTestCase {
         encoder.source(Source.STREAM);
 
         encoder.bidBookCount(3)
-                .next().price(96L).size(100L)
-                .next().price(95L).size(100L)
-                .next().price(95L).size(100L);
+                .next().price(100L).size(100L)
+                .next().price(102L).size(200L)
+                .next().price(103L).size(300L);
 
         encoder.askBookCount(3)
-                .next().price(105L).size(100L)
-                .next().price(110L).size(200L)
-                .next().price(115L).size(300L);
+                .next().price(110L).size(100L)
+                .next().price(115L).size(200L)
+                .next().price(119L).size(300L);
 
         encoder.instrumentStatus(InstrumentStatus.CONTINUOUS);
 
@@ -185,25 +185,25 @@ public  class StretchAlgoTest extends SequencerTestCase {
     @Test
     public void testDispatchThroughSequencer() throws Exception {
         // 1. check no orders are on the market before triggering logic container
-        assertTrue(container.getState().getChildOrders().size() == 0);
+        assertTrue(container.getState().getChildOrders().isEmpty());
 
         // 2. check no orders are created if the market is closed
         container.setLogic(marketIsForcedClosedInstance); // should return no action and say we can't place orders because the market is closed
-        send(createTick());
-        assertTrue(container.getState().getChildOrders().size() == 0);
+        send(createTick0());
+        assertTrue(container.getState().getActiveChildOrders().isEmpty());
         Action returnAction = logicInstance.evaluate(container.getState());
-        assertEquals(NoAction.class, returnAction.getClass());
+        assertEquals(NoAction.class, returnAction.getClass()); // assert 'No action' action is returned
 
         // 3. Test that if the market is forced Open and enough data is collected on market trends where trend is stable (no overall or minimal change) - zero orders are created
         container.setLogic(marketIsForcedOpenInstance);
         assertTrue(!marketIsForcedOpenInstance.isMarketClosed());
-        send(createTick());
-        send(createTick());
-        send(createTick());
-        send(createTick());
-        send(createTick());
-        send(createTick());
-        assertTrue(container.getState().getActiveChildOrders().size() == 0);
+        send(createTick0());
+        send(createTick0());
+        send(createTick0());
+        send(createTick0());
+        send(createTick0());
+        send(createTick0());
+        assertTrue(container.getState().getActiveChildOrders().isEmpty());
 
         // 4. Test that if the market is forced Open and enough data is collected on market trends to BUY LOW, 3 BUY orders are created
         send(createTickBUYLow());
@@ -211,12 +211,12 @@ public  class StretchAlgoTest extends SequencerTestCase {
         assertTrue(container.getState().getActiveChildOrders().stream().allMatch(childOrder -> childOrder.getSide().toString().equals("BUY")));
         long expectedChildOrderQuantity = 100;
         assertTrue(container.getState().getActiveChildOrders().stream().allMatch(childOrder -> childOrder.getQuantity() == expectedChildOrderQuantity)); // asser quantity is
-        long expectedPrice = 96 ;
-        System.out.println("price is: " + expectedPrice);
-//        assertTrue(container.getState().getActiveChildOrders().stream().allMatch(childOrder -> childOrder.getPrice() == price)); //
+        long expectedBidPrice = container.getState().getBidAt(0).price;
+        System.out.println("price is: " + expectedBidPrice);
+        assertTrue(container.getState().getActiveChildOrders().stream().allMatch(childOrder -> childOrder.getPrice() == expectedBidPrice)); //
 
 
-        // 5. Assert that the average of calculated is as expected (basic tick and BUY tick)
+        // 5. Assert that the average calculator methods works as expected for order books (basic tick and BUY tick)
         // ideally would want to calculate the order book of 5 iterations of createTick() and 1 of createTickBidMarketFavourable()
 
         // 6. Assert that the average trend evaluation using list of averages is working as expected
@@ -225,25 +225,76 @@ public  class StretchAlgoTest extends SequencerTestCase {
 
         // 7. Assert no more orders are created if the trend changes e.g., it's more favourable to SELL now (we don't have stocks to sell yet, should still BUY)
         send(createTickSELLHigh());
+        send(createTickBUYLow());
         assertTrue(container.getState().getChildOrders().size() == 3);
         assertTrue(container.getState().getActiveChildOrders().size() == 3);
 
         // 8. test these ALL ACTIVE orders are cancelled if the market closes
         container.setLogic(marketIsForcedClosedInstance);
         send(createTickBUYLow());
-        assertTrue(container.getState().getActiveChildOrders().size() == 0);
+        assertTrue(container.getState().getActiveChildOrders().isEmpty());
         assertTrue(container.getState().getChildOrders().size() == 3); // to assert no active orders but there are 3 CANCELLED orders
     }
 
     @Test
     public void testNoOrdersCreatedIfMarketClosed() throws Exception {
         container.setLogic(marketIsForcedClosedInstance); // should return no action and say we can't place orders because the market is closed
-        send(createTick());
-        assertTrue(container.getState().getChildOrders().size() == 0);
+        send(createTick0());
+        assertTrue(container.getState().getChildOrders().isEmpty());
         Action returnAction = logicInstance.evaluate(container.getState());
         assertEquals(NoAction.class, returnAction.getClass());
 
     }
 
-    // current coverage:
+    @Test
+    public void testSellCondition() throws Exception {
+        // 1. check no orders are on the market before triggering logic container
+        assertTrue(container.getState().getChildOrders().isEmpty());
+
+        // 2. check no orders are created if the market is closed
+        container.setLogic(marketIsForcedClosedInstance); // should return no action and say we can't place orders because the market is closed
+        send(createTick0());
+        assertTrue(container.getState().getActiveChildOrders().isEmpty());
+        Action returnAction = logicInstance.evaluate(container.getState());
+        assertEquals(NoAction.class, returnAction.getClass()); // assert 'No action' action is returned
+
+        // 3. Test that if the market is forced Open and enough data is collected on market trends to SELL HIGH , 3 SELL orders are created
+        container.setLogic(marketIsForcedOpenInstance);
+        assertTrue(!marketIsForcedOpenInstance.isMarketClosed());
+        send(createTick0());
+        send(createTick0());
+        send(createTick0());
+        send(createTick0());
+        send(createTickSELLHigh());
+        send(createTickSELLHigh());
+        assertTrue(container.getState().getActiveChildOrders().size() == 3);
+        assertTrue(container.getState().getActiveChildOrders().stream().allMatch(childOrder -> childOrder.getSide().toString().equals("SELL")));
+        long expectedChildOrderQuantity = 100;
+        assertTrue(container.getState().getActiveChildOrders().stream().allMatch(childOrder -> childOrder.getQuantity() == expectedChildOrderQuantity)); // asser quantity is
+        long expectedBidPrice = container.getState().getAskAt(0).price;
+        System.out.println("Placed 3 ask orders with ask price: " + expectedBidPrice);
+        assertTrue(container.getState().getActiveChildOrders().stream().allMatch(childOrder -> childOrder.getPrice() == expectedBidPrice)); //
+
+
+        // 5. Assert that the average calculator methods works as expected for order books (basic tick and BUY tick)
+        // ideally would want to calculate the order book of 5 iterations of createTick() and 1 of createTickBidMarketFavourable()
+
+        // 6. Assert that the average trend evaluation using list of averages is working as expected
+        List<Double> listOfAverages = Arrays.asList(95.0, 94.0, 93.0, 92.0, 91.0, 90.0);
+        assertEquals(-5, logicInstance.evaluateTrendUsingMWAList(listOfAverages), 0.1);
+
+        // 7. Assert no more orders are created if the trend changes e.g., it's more favourable to SELL now (we don't have stocks to sell yet, should still BUY)
+        send(createTickBUYLow());
+        send(createTickBUYLow());
+        send(createTickSELLHigh());
+        assertTrue(container.getState().getChildOrders().size() == 3);
+        assertTrue(container.getState().getActiveChildOrders().size() == 3);
+
+        // 8. test these ALL ACTIVE orders are cancelled if the market closes
+        container.setLogic(marketIsForcedClosedInstance);
+        send(createTickBUYLow());
+        assertTrue(container.getState().getActiveChildOrders().isEmpty());
+        assertTrue(container.getState().getChildOrders().size() == 3); // to assert no active orders but there are 3 CANCELLED orders
+    }
+
 }

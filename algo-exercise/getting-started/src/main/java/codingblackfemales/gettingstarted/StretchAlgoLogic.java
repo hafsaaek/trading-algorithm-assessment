@@ -32,10 +32,17 @@ public class StretchAlgoLogic implements AlgoLogic {
     private static final LocalTime MARKET_CLOSE_TIME = LocalTime.of(16, 35, 0); // market close time is after close market auction window to allow our algo to secure a good ask/bid price
     private static final ZoneId LONDON_TIME_ZONE = ZoneId.of("Europe/London");
 
-    /*
-    * This Algo logic builds on the basic algo logic by adding orders on the BUY side when favours buying low (sellers are placing lower ask offers than historic data) AND THEN when the market favours selling at a higher price (ask price are going back up), place a SELL order that purchases those 300 shares previously bought at a higher price
-    * The Market trend is determined by
-    * */
+    /* LOGIC: This Algo logic builds on the basic algo logic by
+        * Adding orders on the BUY side when favours buying low (sellers are placing lower ask offers than historic data) OR when the market favours selling at a higher price (ask price are going back up), place a SELL order that purchases those 300 shares previously bought at a higher price or vice versa to ensure a profit can be made.
+    * The Market trend is determined using the Moving Weight Average strategy by:
+        * 1. An average of each instance of the order book is calculated over 6 occurrences to ensure an accurate trend of the market is captured
+        * 2. The sum of those 6 averages are calculated and then added up
+        * 3. If the ask side trend demonstrates a strong decline --> BUY to secure a security at a cheaper price
+        * 4. If the bid side shows an increasing trend and the ask side shows an increasing trend -->  SELL those previously acquired shares at a higher price
+    * Assumptions for this logic:
+        * We are either provided with a market order to BUY 300 shares or SELL 300 shares by sending 3 child orders
+        * If the trend favours BUYING cheap, SELL high for later or vice versa
+        * Orders that are not filled are cancelled by end of Day OR if the market is closed [Public holidays have not been accounted for] - no orders are placed * */
 
     private static final Logger logger = LoggerFactory.getLogger(StretchAlgoLogic.class);
 
@@ -54,8 +61,10 @@ public class StretchAlgoLogic implements AlgoLogic {
                 if (activeChildOrder.getFilledQuantity() != childOrderQuantity  && isMarketClosed() && !activeChildOrders.isEmpty()) {
                     logger.info("[STRETCH-ALGO] The market is closed, cancelling orders ");
                     logger.info("[STRETCH-ALGO] Cancelling day order ID: {} on side: {}", activeChildOrder.getOrderId(), activeChildOrder.getSide());
-                    logger.info("[STRETCH-ALGO] Order State: {}", activeChildOrder.getState());
                     return new CancelChildOrder(activeChildOrder);
+                } else{
+                    logger.info("[STRETCH-ALGO] No active pending or other non-filled orders to cancel ");
+                    return NoAction.NoAction;
                 }
             }
             logger.info("[STRETCH-ALGO] No active orders & Market is closed, Not placing new orders ");
@@ -86,24 +95,25 @@ public class StretchAlgoLogic implements AlgoLogic {
         double askMarketTrend = evaluateTrendUsingMWAList(askAverages);
         logger.info("[STRETCH-ALGO] Market trend calculated, Bid market trend is {}, Ask Market Trend is {}", bidMarketTrend, askMarketTrend);
 
-        final long highestAsk = askLevels.stream().mapToLong(level -> level.price).max().orElse(0);
         logger.info("[STRETCH-ALGO] FilledQuantity Tracker: Total Filled Quantity for orders so far is: {}", totalFilledQuantity);
 
         // buy now before bid prices increase further and whilst ask side is offering lower and lower offers
-        if (Math.abs(askMarketTrend) >  TREND_THRESHOLD ) {
+        if (askMarketTrend < - TREND_THRESHOLD) { // buy if sellers are offering lower and lower prices
             logger.info("[STRETCH-ALGO] Trend favorable for BUY, placing child order.");
             final BidLevel bestBid = state.getBidAt(0);
             long price = bestBid.price;
-            logger.info("Best bid: {}", price);
+            logger.info("Best bid: {}", bestBid);
             return new CreateChildOrder(Side.BUY, childOrderQuantity, price);
-        } else if (Math.abs(askMarketTrend) >  TREND_THRESHOLD && Math.abs(askMarketTrend) > Math.abs(bidMarketTrend)) { // sell what you originally bought for more by checking ask side trend
+        } else if (askMarketTrend >  TREND_THRESHOLD && bidMarketTrend > TREND_THRESHOLD) { // sell what you originally bought for more by checking ask side trend
             logger.info("[STRETCH-ALGO] Trend favorable for SELL, placing child order.");
-            logger.info("Best ask: {}", highestAsk);
-            return new CreateChildOrder(Side.SELL, childOrderQuantity, highestAsk);
-        } else if (bidMarketTrend <= TREND_THRESHOLD && askMarketTrend <= TREND_THRESHOLD) { // stable criteria
+            final AskLevel bestAsk = state.getAskAt(0);
+            long price = bestAsk.price;
+            return new CreateChildOrder(Side.SELL, childOrderQuantity, price);
+        } else if (Math.abs(bidMarketTrend) <= TREND_THRESHOLD && Math.abs(bidMarketTrend) <= TREND_THRESHOLD) { // if both sides trend shows little to no fluctuation, don't place orders
             logger.info("[STRETCH-ALGO] Market is stable, holding off placing orders for the meantime. Returning No Action.");
             return NoAction.NoAction;
         } // // profit == bestBid - lowest ask offer
+
 
         logger.info("[STRETCH-ALGO] No action to take.");
         return NoAction.NoAction;
@@ -116,7 +126,7 @@ public class StretchAlgoLogic implements AlgoLogic {
         ZonedDateTime marketOpenDateTime = ZonedDateTime.of(today, MARKET_OPEN_TIME, LONDON_TIME_ZONE);  // Declare market opening conditions
         ZonedDateTime marketCloseDateTime = ZonedDateTime.of(today, MARKET_CLOSE_TIME, LONDON_TIME_ZONE); // Declare market closing conditions
 
-        // Deduce if the current time is before opening, after closing, or on a weekend - we will ignore holidays for now (could create a list/map of holiday dates using some sort of library)
+        // Deduce if the current time is before opening, after closing, or on a weekend - we will ignore holidays for now
         return timeNow.isBefore(marketOpenDateTime) || timeNow.isAfter(marketCloseDateTime) || today.getDayOfWeek() == DayOfWeek.SATURDAY || today.getDayOfWeek() == DayOfWeek.SUNDAY; // Market is closed @ or after 4.30pm
     }
 
