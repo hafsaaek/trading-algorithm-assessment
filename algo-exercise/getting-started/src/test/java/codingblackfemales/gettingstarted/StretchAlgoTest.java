@@ -12,6 +12,7 @@ import codingblackfemales.sequencer.marketdata.SequencerTestCase;
 import codingblackfemales.sequencer.net.TestNetwork;
 import codingblackfemales.service.MarketDataService;
 import codingblackfemales.service.OrderService;
+import codingblackfemales.sotw.marketdata.BidLevel;
 import messages.marketdata.*;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,7 +22,9 @@ import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 
 import static junit.framework.Assert.assertTrue;
@@ -54,16 +57,15 @@ public  class StretchAlgoTest extends SequencerTestCase {
     }
 
 
-    protected UnsafeBuffer createTick0(){
-        final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder();
-        final BookUpdateEncoder encoder = new BookUpdateEncoder();
+    protected UnsafeBuffer createTick0(){ // UnsafeBuffer provides low-level access to memory, allowing for faster operations
+        final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder(); // header of message is encoded to binary format
+        final BookUpdateEncoder encoder = new BookUpdateEncoder(); // contents of messages (OB) is also encoded for computer processing
         final ByteBuffer byteBuffer = ByteBuffer.allocateDirect(1024);
-        final UnsafeBuffer directBuffer = new UnsafeBuffer(byteBuffer);
-        //write the encoded output to the direct buffer
-        encoder.wrapAndApplyHeader(directBuffer, 0, headerEncoder);
+        final UnsafeBuffer directBuffer = new UnsafeBuffer(byteBuffer); // store content in a buffer with 1024 bytes of data
+        encoder.wrapAndApplyHeader(directBuffer, 0, headerEncoder);   //write the encoded output to the direct buffer and spit out the header
         //set the fields to desired values
-        encoder.venue(Venue.XLON);
-        encoder.instrumentId(123L);
+        encoder.venue(Venue.XLON); // specified we are trading stock in LSEG
+        encoder.instrumentId(123L); // not really sure
         encoder.bidBookCount(3)
                 .next().price(98L).size(100L)
                 .next().price(95L).size(200L)
@@ -163,7 +165,7 @@ public  class StretchAlgoTest extends SequencerTestCase {
         LocalTime marketOpenTime = LocalTime.of(8, 0, 0);
         LocalTime marketCloseTime = LocalTime.of(16, 35, 00);
         // declare a boolean that will hold true for all market closed conditions (except holidays)
-        boolean isMarketClosedTestVariable = timeNow.toLocalTime().isBefore(marketOpenTime) || timeNow.toLocalTime().isAfter(marketOpenTime) || timeNow.toLocalDate().getDayOfWeek() == DayOfWeek.SATURDAY || timeNow.toLocalDate().getDayOfWeek() == DayOfWeek.SUNDAY;
+        boolean isMarketClosedTestVariable = timeNow.toLocalTime().isBefore(marketOpenTime) || timeNow.toLocalTime().isAfter(marketCloseTime) || timeNow.toLocalDate().getDayOfWeek() == DayOfWeek.SATURDAY || timeNow.toLocalDate().getDayOfWeek() == DayOfWeek.SUNDAY;
         System.out.println(isMarketClosedTestVariable);
         System.out.println(logicInstance.isMarketClosed());
         // if boolean : true --> isMarketClosed() should also return true and vice versa
@@ -218,6 +220,14 @@ public  class StretchAlgoTest extends SequencerTestCase {
 
         // 5. Assert that the average calculator methods works as expected for order books (basic tick and BUY tick)
         // ideally would want to calculate the order book of 5 iterations of createTick() and 1 of createTickBidMarketFavourable()
+        List<StretchAlgoLogic.OrderBookLevel> orderArray = new ArrayList<StretchAlgoLogic.OrderBookLevel>();
+        StretchAlgoLogic.OrderBookLevel order1 = new StretchAlgoLogic.OrderBookLevel(100, 100);
+        StretchAlgoLogic.OrderBookLevel order2 = new StretchAlgoLogic.OrderBookLevel(90, 200);
+        StretchAlgoLogic.OrderBookLevel order3 = new StretchAlgoLogic.OrderBookLevel(80, 300);
+//        UnsafeBuffer sampleOrder = createTick0(100, 100);
+        orderArray.addAll(Arrays.asList(order1, order2 ,order3));
+        double movingWeightAverage = Math.abs(logicInstance.calculateMovingWeightAverage(orderArray));
+        assertEquals(86.67, movingWeightAverage, 0.01);
 
         // 6. Assert that the average trend evaluation using list of averages is working as expected
         List<Double> listOfAverages = Arrays.asList(90.0, 91.0, 92.0, 93.0, 94.0, 95.0);
@@ -296,5 +306,14 @@ public  class StretchAlgoTest extends SequencerTestCase {
         assertTrue(container.getState().getActiveChildOrders().isEmpty());
         assertTrue(container.getState().getChildOrders().size() == 3); // to assert no active orders but there are 3 CANCELLED orders
     }
+
+//    @Test
+//    public void playWithTickMethods(){
+//        final BookUpdateEncoder decoder = new BookUpdateEncoder();
+//        decoder.wrapAndApplyHeader(directBuffer, 0, dire);   //write the encoded output to the direct buffer and spit out the header
+//
+//
+//        createTick0().byteBuffer().get(0);
+//    }
 
 }

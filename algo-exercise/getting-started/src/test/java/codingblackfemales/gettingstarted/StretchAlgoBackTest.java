@@ -13,6 +13,7 @@ import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -56,7 +57,7 @@ public class StretchAlgoBackTest extends AbstractAlgoBackTest {
         LocalTime marketOpenTime = LocalTime.of(8, 0, 0);
         LocalTime marketCloseTime = LocalTime.of(16, 35, 00);
         // declare a boolean that will hold true for all market closed conditions (except holidays)
-        boolean isMarketClosedTestVariable = timeNow.toLocalTime().isBefore(marketOpenTime) || timeNow.toLocalTime().isAfter(marketOpenTime) || timeNow.toLocalDate().getDayOfWeek() == DayOfWeek.SATURDAY || timeNow.toLocalDate().getDayOfWeek() == DayOfWeek.SUNDAY;
+        boolean isMarketClosedTestVariable = timeNow.toLocalTime().isBefore(marketOpenTime) || timeNow.toLocalTime().isAfter(marketCloseTime) || timeNow.toLocalDate().getDayOfWeek() == DayOfWeek.SATURDAY || timeNow.toLocalDate().getDayOfWeek() == DayOfWeek.SUNDAY;
         System.out.println(isMarketClosedTestVariable);
         System.out.println(logicInstance.isMarketClosed());
         // if boolean : true --> isMarketClosed() should also return true and vice versa
@@ -66,8 +67,6 @@ public class StretchAlgoBackTest extends AbstractAlgoBackTest {
         assertFalse(marketIsForcedOpenInstance.isMarketClosed()); // returns false for forced open instance
         assertTrue(marketIsForcedClosedInstance.isMarketClosed()); // returns true for forced closed instance
     }
-
-
 
     @Test
     public void testDispatchThroughSequencer() throws Exception {
@@ -90,12 +89,13 @@ public class StretchAlgoBackTest extends AbstractAlgoBackTest {
         send(createTick0());
         send(createTick0());
         send(createTick0());
-        assertTrue(container.getState().getActiveChildOrders().isEmpty());
+        assertTrue(container.getState().getChildOrders().isEmpty());
 
         // 4. Test that if the market is forced Open and enough data is collected on market trends to BUY LOW, 3 BUY orders are created
         send(createTickBUYLow());
         assertTrue(container.getState().getActiveChildOrders().size() == 3);
         assertTrue(container.getState().getActiveChildOrders().stream().allMatch(childOrder -> childOrder.getSide().toString().equals("BUY")));
+        assertFalse(container.getState().getActiveChildOrders().stream().anyMatch(childOrder -> childOrder.getSide().toString().equals("SELL")));
         long expectedChildOrderQuantity = 100;
         assertTrue(container.getState().getActiveChildOrders().stream().allMatch(childOrder -> childOrder.getQuantity() == expectedChildOrderQuantity)); // asser quantity is
         long expectedBidPrice = container.getState().getBidAt(0).price;
@@ -104,7 +104,14 @@ public class StretchAlgoBackTest extends AbstractAlgoBackTest {
 
 
         // 5. Assert that the average calculator methods works as expected for order books (basic tick and BUY tick)
-        // ideally would want to calculate the order book of 5 iterations of createTick0() and 1 of createTickBidMarketFavourable()
+        List<StretchAlgoLogic.OrderBookLevel> orderArray = new ArrayList<StretchAlgoLogic.OrderBookLevel>();
+        StretchAlgoLogic.OrderBookLevel order1 = new StretchAlgoLogic.OrderBookLevel(100, 100);
+        StretchAlgoLogic.OrderBookLevel order2 = new StretchAlgoLogic.OrderBookLevel(90, 200);
+        StretchAlgoLogic.OrderBookLevel order3 = new StretchAlgoLogic.OrderBookLevel(80, 300);
+        orderArray.addAll(Arrays.asList(order1, order2 ,order3));
+        double movingWeightAverage = Math.abs(logicInstance.calculateMovingWeightAverage(orderArray));
+        System.out.println("calculated weight average is: " + movingWeightAverage );
+        Assert.assertEquals(86.67, movingWeightAverage, 0.01);
 
         // 6. Assert that the average trend evaluation using list of averages is working as expected
         List<Double> listOfAverages = Arrays.asList(90.0, 91.0, 92.0, 93.0, 94.0, 95.0);
@@ -149,6 +156,7 @@ public class StretchAlgoBackTest extends AbstractAlgoBackTest {
         send(createTickBUYLow());
         assertTrue(container.getState().getActiveChildOrders().size() == 3);
         assertTrue(container.getState().getActiveChildOrders().stream().allMatch(childOrder -> childOrder.getSide().toString().equals("BUY")));
+        assertFalse(container.getState().getActiveChildOrders().stream().anyMatch(childOrder -> childOrder.getSide().toString().equals("SELL")));
         long expectedChildOrderQuantity = 100;
         assertTrue(container.getState().getActiveChildOrders().stream().allMatch(childOrder -> childOrder.getQuantity() == expectedChildOrderQuantity)); // asser quantity is
         long expectedBidPrice = container.getState().getBidAt(0).price;
@@ -193,6 +201,8 @@ public class StretchAlgoBackTest extends AbstractAlgoBackTest {
         send(createTickSELLHigh());
         assertTrue(container.getState().getActiveChildOrders().size() == 3);
         assertTrue(container.getState().getActiveChildOrders().stream().allMatch(childOrder -> childOrder.getSide().toString().equals("SELL")));
+        assertFalse(container.getState().getActiveChildOrders().stream().anyMatch(childOrder -> childOrder.getSide().toString().equals("BUY")));
+
         long expectedChildOrderQuantity = 100;
         assertTrue(container.getState().getActiveChildOrders().stream().allMatch(childOrder -> childOrder.getQuantity() == expectedChildOrderQuantity)); // asser quantity is
         long expectedAskPrice = container.getState().getAskAt(0).price;
@@ -221,6 +231,7 @@ public class StretchAlgoBackTest extends AbstractAlgoBackTest {
         send(createTickBUYLow());
         assertTrue(container.getState().getActiveChildOrders().size() == 3); // to assert filled active orders are NOT CANCELLED
 
+        // 6. Profit made after BUYING at 96 as per testBUYCondition, the profit is:
         System.out.println("Profit made is: " + (expectedAskPrice - 96));
     }
 

@@ -2,12 +2,10 @@ package codingblackfemales.orderbook;
 
 import codingblackfemales.orderbook.channel.MarketDataChannel;
 import codingblackfemales.orderbook.channel.OrderChannel;
+import codingblackfemales.orderbook.order.DefaultOrderFlyweight;
 import codingblackfemales.orderbook.order.LimitOrderFlyweight;
 import codingblackfemales.orderbook.order.MarketDataOrderFlyweight;
-import codingblackfemales.orderbook.visitor.CancelOrderVisitor;
-import codingblackfemales.orderbook.visitor.MutatingMatchOneMarketDataOrderVisitor;
-import codingblackfemales.orderbook.visitor.MutatingMatchOneOrderVisitor;
-import codingblackfemales.orderbook.visitor.ReadOnlyMarketDataChannelPublishVisitor;
+import codingblackfemales.orderbook.visitor.*;
 import codingblackfemales.sequencer.event.MarketDataEventListener;
 import messages.marketdata.AskBookUpdateDecoder;
 import messages.marketdata.BidBookUpdateDecoder;
@@ -194,4 +192,39 @@ public class OrderBook extends MarketDataEventListener {
         getAskBookSide().accept(mktDataVisitor);
         return mktDataVisitor.end();
     }
+
+//    private void printOrderBook() {
+//        askBookSide.accept(new OrderBookVisitor() {
+//            @Override
+//            public void visitSide(OrderBookSide side) {
+//
+//            }
+//
+//            @Override
+//            public void visitLevel(OrderBookSide side, OrderBookLevel level) {
+//                System.out.println(level);
+//
+//            }
+//
+//            @Override
+//            public void visitOrder(DefaultOrderFlyweight order, OrderBookSide side, OrderBookLevel level, boolean isLast) {
+//
+//            }
+//
+//            @Override
+//            public OrderBookLevel missingBookLevel(OrderBookLevel previous, OrderBookLevel next, long price) {
+//                return null;
+//            }
+//
+//            @Override
+//            public OrderBookLevel onNoFirstLevel() {
+//                return null;
+//            }
+//
+//            @Override
+//            public DefaultOrderFlyweight onNoFirstOrder() {
+//                return null;
+//            }
+//        });
+//    }
 }

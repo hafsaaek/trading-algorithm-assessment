@@ -63,6 +63,9 @@ public abstract class OrderBookSide {
                 OrderBookLevel level = visitor.missingBookLevel(levelToVisit, nextLevel, priceToFind);
                 levelToVisit.last().add(level);
             }
+//            else{
+//                System.out.println("BREAKPOINT");
+//            }
         }else{
             levelToVisit.accept(visitor, this);
         }

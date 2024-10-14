@@ -13,16 +13,28 @@ import codingblackfemales.util.Util;
 import messages.order.Side;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.time.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+/* LOGIC: This Algo logic builds on the basic algo logic by
+    * Adding orders on the BUY side when favours buying low (sellers are placing lower ask offers than historic data) OR when the market favours selling at a higher price (ask price are going back up), place a SELL order that purchases those 300 shares previously bought at a higher price or vice versa to ensure a profit can be made.
+ * The Market trend is determined using the Moving Weight Average strategy by:
+     * 1. An average of each instance of the order book is calculated over 6 occurrences to ensure an accurate trend of the market is captured
+     * 2. The sum of those 6 averages are calculated and then added up
+     * 3. If the ask side trend demonstrates a strong decline --> BUY to secure a security at a cheaper price
+     * 4. If the bid side shows an increasing trend and the ask side shows an increasing trend -->  SELL those previously acquired shares at a higher price
+ * Assumptions for this logic:
+ * We are either provided with a market order to BUY 300 shares or SELL 300 shares by sending 3 child orders
+ * If the trend favours BUYING cheap, SELL high for later or vice versa
+ * Orders that are not filled are cancelled by end of Day OR if the market is closed [Public holidays have not been accounted for] - no orders are placed * */
+
+
 public class StretchAlgoLogic implements AlgoLogic {
     final int MINIMUM_ORDER_BOOKS = 6; //
     final int MAX_CHILD_ORDERS = 3;
-    long childOrderQuantity = 100;
+    final long childOrderQuantity = 100;
     long parentOrderQuantity = 300; // buy or sell 300 shares (3 child orders of a 100)
     final double TREND_THRESHOLD = 0.5; // use this threshold to avoid algo reacting to small fluctuations in price - prices can only be long so 0.5 is a good measure for a stable market
     // initialise the moving averages list as instance fields to allow the evolute method to accumulate them over several ticks
@@ -31,18 +43,6 @@ public class StretchAlgoLogic implements AlgoLogic {
     private static final LocalTime MARKET_OPEN_TIME = LocalTime.of(8, 0, 0);
     private static final LocalTime MARKET_CLOSE_TIME = LocalTime.of(16, 35, 0); // market close time is after close market auction window to allow our algo to secure a good ask/bid price
     private static final ZoneId LONDON_TIME_ZONE = ZoneId.of("Europe/London");
-
-    /* LOGIC: This Algo logic builds on the basic algo logic by
-        * Adding orders on the BUY side when favours buying low (sellers are placing lower ask offers than historic data) OR when the market favours selling at a higher price (ask price are going back up), place a SELL order that purchases those 300 shares previously bought at a higher price or vice versa to ensure a profit can be made.
-    * The Market trend is determined using the Moving Weight Average strategy by:
-        * 1. An average of each instance of the order book is calculated over 6 occurrences to ensure an accurate trend of the market is captured
-        * 2. The sum of those 6 averages are calculated and then added up
-        * 3. If the ask side trend demonstrates a strong decline --> BUY to secure a security at a cheaper price
-        * 4. If the bid side shows an increasing trend and the ask side shows an increasing trend -->  SELL those previously acquired shares at a higher price
-    * Assumptions for this logic:
-        * We are either provided with a market order to BUY 300 shares or SELL 300 shares by sending 3 child orders
-        * If the trend favours BUYING cheap, SELL high for later or vice versa
-        * Orders that are not filled are cancelled by end of Day OR if the market is closed [Public holidays have not been accounted for] - no orders are placed * */
 
     private static final Logger logger = LoggerFactory.getLogger(StretchAlgoLogic.class);
 
@@ -56,25 +56,31 @@ public class StretchAlgoLogic implements AlgoLogic {
         long totalFilledQuantity = allChildOrders.stream().mapToLong(ChildOrder::getFilledQuantity).sum(); // sum of quantities of all filled orders
         List<ChildOrder> activeChildOrders = state.getActiveChildOrders(); // list of all child orders (active and non-active)
 
-        if(isMarketClosed()) {
-            for (ChildOrder activeChildOrder : activeChildOrders) {
-                if (activeChildOrder.getFilledQuantity() != childOrderQuantity  && isMarketClosed() && !activeChildOrders.isEmpty()) {
-                    logger.info("[STRETCH-ALGO] The market is closed, cancelling orders ");
-                    logger.info("[STRETCH-ALGO] Cancelling day order ID: {} on side: {}", activeChildOrder.getOrderId(), activeChildOrder.getSide());
-                    return new CancelChildOrder(activeChildOrder);
-                } else{
-                    logger.info("[STRETCH-ALGO] No active pending or other non-filled orders to cancel ");
-                    return NoAction.NoAction;
-                }
-            }
-            logger.info("[STRETCH-ALGO] No active orders & Market is closed, Not placing new orders ");
+        // Exit Condition 1: If Market is closed before logic is triggered - don't return any action
+        if(isMarketClosed() && allChildOrders.isEmpty()) {
+            logger.info("[STRETCH-ALGO] No orders on the market & Market is closed, Not placing new orders ");
             return NoAction.NoAction;
+        } else{
+            logger.info("[STRETCH-ALGO] The market is NOT closed, continuing with logic");
         }
 
-        // Return No action if max count of child orders created or parent order filled
+        // Exit Condition 2: If Market is closed after logic has been triggered - cancel all non-filled orders on the market
+        List<ChildOrder> ordersToCancel = activeChildOrders.stream().filter(childOrder -> childOrder.getFilledQuantity() == 0).toList();
+        if (isMarketClosed() && !ordersToCancel.isEmpty()){
+            for (ChildOrder orderToCancel: ordersToCancel){
+                logger.info("[STRETCH-ALGO] The market is closed. Cancelling day order ID: {} on side: {}", orderToCancel.getOrderId(), orderToCancel.getSide());
+                return new CancelChildOrder(orderToCancel);
+            }
+        } else{
+            logger.info("[STRETCH-ALGO] The market is NOT closed and there are no orders to cancel, continuing with logic");
+        }
+
+        // Exit Condition 3: Return No action if max count of child orders created or parent order filled (all 3 child orders)
         if (allChildOrders.size() >= MAX_CHILD_ORDERS || totalFilledQuantity >= parentOrderQuantity) {
             logger.info("[STRETCH-ALGO] Maximum number of orders: {} reached OR parent desired quantity has been filled {}. Returning No Action.", allChildOrders.size(), totalFilledQuantity);
             return NoAction.NoAction;
+        } else{
+            logger.info("[STRETCH-ALGO] Max number of children yet to be created OR total filled quantity yet to be reached, continuing with logic");
         }
 
         // 1. calc the average for each order book --> add that to a list --> add to a list of moving averages --> once list.size() == 6 --> evaluate trend -->
@@ -97,7 +103,6 @@ public class StretchAlgoLogic implements AlgoLogic {
 
         logger.info("[STRETCH-ALGO] FilledQuantity Tracker: Total Filled Quantity for orders so far is: {}", totalFilledQuantity);
 
-        // buy now before bid prices increase further and whilst ask side is offering lower and lower offers
         if (askMarketTrend < - TREND_THRESHOLD) { // buy if sellers are offering lower and lower prices
             logger.info("[STRETCH-ALGO] Trend favorable for BUY, placing child order.");
             final BidLevel bestBid = state.getBidAt(0);
@@ -114,7 +119,6 @@ public class StretchAlgoLogic implements AlgoLogic {
             return NoAction.NoAction;
         } // // profit == bestBid - lowest ask offer
 
-
         logger.info("[STRETCH-ALGO] No action to take.");
         return NoAction.NoAction;
     }
@@ -127,7 +131,7 @@ public class StretchAlgoLogic implements AlgoLogic {
         ZonedDateTime marketCloseDateTime = ZonedDateTime.of(today, MARKET_CLOSE_TIME, LONDON_TIME_ZONE); // Declare market closing conditions
 
         // Deduce if the current time is before opening, after closing, or on a weekend - we will ignore holidays for now
-        return timeNow.isBefore(marketOpenDateTime) || timeNow.isAfter(marketCloseDateTime) || today.getDayOfWeek() == DayOfWeek.SATURDAY || today.getDayOfWeek() == DayOfWeek.SUNDAY; // Market is closed @ or after 4.30pm
+        return timeNow.isBefore(marketOpenDateTime) || timeNow.isAfter(marketCloseDateTime) || today.getDayOfWeek() == DayOfWeek.SATURDAY || today.getDayOfWeek() == DayOfWeek.SUNDAY; // Market is closed @ or after 4.35pm
     }
 
     public HashMap<String, List<OrderBookLevel>> getOrderBookLevels(SimpleAlgoState state) {
@@ -154,7 +158,7 @@ public class StretchAlgoLogic implements AlgoLogic {
         return orderBookMap;
     }
 
-    public class OrderBookLevel {
+    public static class OrderBookLevel {
         public final long price;
         public final long quantity;
 
