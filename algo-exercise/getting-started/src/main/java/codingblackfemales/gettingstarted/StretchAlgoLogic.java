@@ -31,6 +31,11 @@ import java.util.List;
 
 
 public class StretchAlgoLogic implements AlgoLogic {
+
+    private static final Logger logger = LoggerFactory.getLogger(StretchAlgoLogic.class);
+    private MarketStatus marketStatus = new MarketStatus();
+    private MovingWeightAverageCalculator mwaCalculator;
+
     final int MINIMUM_ORDER_BOOKS = 6; //
     final int MAX_CHILD_ORDERS = 3;
     final long childOrderQuantity = 100;
@@ -40,8 +45,6 @@ public class StretchAlgoLogic implements AlgoLogic {
     private List<Double> bidAverages = new ArrayList<>();
     private List<Double> askAverages = new ArrayList<>();
 
-    private static final Logger logger = LoggerFactory.getLogger(StretchAlgoLogic.class);
-    private MarketStatus marketStatus = new MarketStatus();
 
     public StretchAlgoLogic(MarketStatus marketStatus) {
         this.marketStatus = marketStatus;
