@@ -12,11 +12,10 @@ import codingblackfemales.sotw.marketdata.BidLevel;
 import codingblackfemales.util.Util;
 import messages.order.Side;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import java.time.*;
-import java.util.ArrayList;
+import org.slf4j.LoggerFactory;import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+
 
 /* LOGIC: This Algo logic builds on the basic algo logic by
     * Adding orders on the BUY side when favours buying low (sellers are placing lower ask offers than historic data) OR when the market favours selling at a higher price (ask price are going back up), place a SELL order that purchases those 300 shares previously bought at a higher price or vice versa to ensure a profit can be made.
@@ -26,9 +25,9 @@ import java.util.List;
      * 3. If the ask side trend demonstrates a strong decline --> BUY to secure a security at a cheaper price
      * 4. If the bid side shows an increasing trend and the ask side shows an increasing trend -->  SELL those previously acquired shares at a higher price
  * Assumptions for this logic:
- * We are either provided with a market order to BUY 300 shares or SELL 300 shares by sending 3 child orders
- * If the trend favours BUYING cheap, SELL high for later or vice versa
- * Orders that are not filled are cancelled by end of Day OR if the market is closed [Public holidays have not been accounted for] - no orders are placed * */
+     * We are either provided with a market order to BUY 300 shares or SELL 300 shares by sending 3 child orders
+     * If the trend favours BUYING cheap, SELL high for later or vice versa
+     * Orders that are not filled are cancelled by end of Day OR if the market is closed [Public holidays have not been accounted for] - no orders are placed * */
 
 
 public class StretchAlgoLogic implements AlgoLogic {
@@ -40,11 +39,17 @@ public class StretchAlgoLogic implements AlgoLogic {
     // initialise the moving averages list as instance fields to allow the evolute method to accumulate them over several ticks
     private List<Double> bidAverages = new ArrayList<>();
     private List<Double> askAverages = new ArrayList<>();
-    private static final LocalTime MARKET_OPEN_TIME = LocalTime.of(8, 0, 0);
-    private static final LocalTime MARKET_CLOSE_TIME = LocalTime.of(16, 35, 0); // market close time is after close market auction window to allow our algo to secure a good ask/bid price
-    private static final ZoneId LONDON_TIME_ZONE = ZoneId.of("Europe/London");
 
     private static final Logger logger = LoggerFactory.getLogger(StretchAlgoLogic.class);
+    private MarketStatus marketStatus = new MarketStatus();
+
+    public StretchAlgoLogic(MarketStatus marketStatus) {
+        this.marketStatus = marketStatus;
+    }
+
+    public boolean isMarketClosed() {
+        return marketStatus.isMarketClosed();
+    }
 
     @Override
     public Action evaluate(SimpleAlgoState state) {
@@ -57,7 +62,7 @@ public class StretchAlgoLogic implements AlgoLogic {
         List<ChildOrder> activeChildOrders = state.getActiveChildOrders(); // list of all child orders (active and non-active)
 
         // Exit Condition 1: If Market is closed before logic is triggered - don't return any action
-        if(isMarketClosed() && allChildOrders.isEmpty()) {
+        if(marketStatus.isMarketClosed() && allChildOrders.isEmpty()) {
             logger.info("[STRETCH-ALGO] No orders on the market & Market is closed, Not placing new orders ");
             return NoAction.NoAction;
         } else{
@@ -66,7 +71,7 @@ public class StretchAlgoLogic implements AlgoLogic {
 
         // Exit Condition 2: If Market is closed after logic has been triggered - cancel all non-filled orders on the market
         List<ChildOrder> ordersToCancel = activeChildOrders.stream().filter(childOrder -> childOrder.getFilledQuantity() == 0).toList();
-        if (isMarketClosed() && !ordersToCancel.isEmpty()){
+        if (marketStatus.isMarketClosed() && !ordersToCancel.isEmpty()){
             for (ChildOrder orderToCancel: ordersToCancel){
                 logger.info("[STRETCH-ALGO] The market is closed. Cancelling day order ID: {} on side: {}", orderToCancel.getOrderId(), orderToCancel.getSide());
                 return new CancelChildOrder(orderToCancel);
@@ -121,17 +126,6 @@ public class StretchAlgoLogic implements AlgoLogic {
 
         logger.info("[STRETCH-ALGO] No action to take.");
         return NoAction.NoAction;
-    }
-
-    /* Method 2: Determine if Market is closed to cancel day orders */
-    public boolean isMarketClosed() {
-        ZonedDateTime timeNow = ZonedDateTime.now(LONDON_TIME_ZONE); // Define London time zone & the present time
-        LocalDate today = LocalDate.now(LONDON_TIME_ZONE); // Declare today's date according to London's time zone
-        ZonedDateTime marketOpenDateTime = ZonedDateTime.of(today, MARKET_OPEN_TIME, LONDON_TIME_ZONE);  // Declare market opening conditions
-        ZonedDateTime marketCloseDateTime = ZonedDateTime.of(today, MARKET_CLOSE_TIME, LONDON_TIME_ZONE); // Declare market closing conditions
-
-        // Deduce if the current time is before opening, after closing, or on a weekend - we will ignore holidays for now
-        return timeNow.isBefore(marketOpenDateTime) || timeNow.isAfter(marketCloseDateTime) || today.getDayOfWeek() == DayOfWeek.SATURDAY || today.getDayOfWeek() == DayOfWeek.SUNDAY; // Market is closed @ or after 4.35pm
     }
 
     public HashMap<String, List<OrderBookLevel>> getOrderBookLevels(SimpleAlgoState state) {

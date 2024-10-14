@@ -7,8 +7,6 @@ import codingblackfemales.sotw.ChildOrder;
 import org.junit.Assert;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -22,10 +20,10 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class StretchAlgoBackTest extends AbstractAlgoBackTest {
-
+    private MarketStatus marketStatus;
     @Override
     public AlgoLogic createAlgoLogic() {
-        return new StretchAlgoLogic();
+        return new StretchAlgoLogic(marketStatus);
     }
     private StretchAlgoLogic logicInstance;
     private StretchAlgoLogic marketIsForcedOpenInstance;
@@ -33,20 +31,23 @@ public class StretchAlgoBackTest extends AbstractAlgoBackTest {
 
     @BeforeEach
     public void setUp(){
-        logicInstance = new StretchAlgoLogic();
-        marketIsForcedOpenInstance = new StretchAlgoLogic() {
+        marketStatus = new MarketStatus();
+        logicInstance = new StretchAlgoLogic(marketStatus);
+        MarketStatus marketIsForcedOpen = new MarketStatus() {
             @Override
-            public boolean  isMarketClosed() {
-                return false;
+            public boolean isMarketClosed() {
+                return false;  // Force open
             }
         };
 
-        marketIsForcedClosedInstance = new StretchAlgoLogic() {
+        MarketStatus marketIsForcedClosed = new MarketStatus() {
             @Override
-            public boolean  isMarketClosed() {
-                return true;
+            public boolean isMarketClosed() {
+                return true;  // Force closed
             }
         };
+        marketIsForcedOpenInstance = new StretchAlgoLogic(marketIsForcedOpen);
+        marketIsForcedClosedInstance = new StretchAlgoLogic(marketIsForcedClosed);
     }
 
     // Test 1: Check isMarketClosed behaves as expected

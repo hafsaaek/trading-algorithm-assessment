@@ -32,7 +32,7 @@ import static org.junit.Assert.*;
 
 
 public  class StretchAlgoTest extends SequencerTestCase {
-
+    private MarketStatus marketStatus;
 
     protected AlgoContainer container;
 
@@ -46,7 +46,7 @@ public  class StretchAlgoTest extends SequencerTestCase {
 
         container = new AlgoContainer(new MarketDataService(runTrigger), new OrderService(runTrigger), runTrigger, actioner);
         //set my algo logic
-        container.setLogic(new StretchAlgoLogic());
+        container.setLogic(new StretchAlgoLogic(marketStatus));
 
         network.addConsumer(new LoggingConsumer());
         network.addConsumer(container.getMarketDataService());
@@ -139,22 +139,26 @@ public  class StretchAlgoTest extends SequencerTestCase {
     private StretchAlgoLogic marketIsForcedOpenInstance;
     private StretchAlgoLogic marketIsForcedClosedInstance;
 
+
     @BeforeEach
     public void setUp(){
-        logicInstance = new StretchAlgoLogic();
-        marketIsForcedOpenInstance = new StretchAlgoLogic() {
+        marketStatus = new MarketStatus();
+        logicInstance = new StretchAlgoLogic(marketStatus);
+        MarketStatus marketIsForcedOpen = new MarketStatus() {
             @Override
-            public boolean  isMarketClosed() {
-                return false;
+            public boolean isMarketClosed() {
+                return false;  // Force open
             }
         };
 
-        marketIsForcedClosedInstance = new StretchAlgoLogic() {
+        MarketStatus marketIsForcedClosed = new MarketStatus() {
             @Override
-            public boolean  isMarketClosed() {
-                return true;
+            public boolean isMarketClosed() {
+                return true;  // Force closed
             }
         };
+        marketIsForcedOpenInstance = new StretchAlgoLogic(marketIsForcedOpen);
+        marketIsForcedClosedInstance = new StretchAlgoLogic(marketIsForcedClosed);
     }
 
     // Test 1: Check isMarketClosed behaves as expected
@@ -177,12 +181,12 @@ public  class StretchAlgoTest extends SequencerTestCase {
     }
 
     // Test 2: Now that testIsMarketClosedFunction is working as expected - check other areas of the code
-        // a. Test no orders are created if market is closed
-        // b. Test no orders are created till we have 6 MWAs
-        // c. Test no orders are created if trend is stable
-        // d. send more ticks to trigger creating an order - 3 should be created
-        // e. send another tick to confirm no more than 3 have been created
-        // f. check orders are cancelled if market is force closed
+    // a. Test no orders are created if market is closed
+    // b. Test no orders are created till we have 6 MWAs
+    // c. Test no orders are created if trend is stable
+    // d. send more ticks to trigger creating an order - 3 should be created
+    // e. send another tick to confirm no more than 3 have been created
+    // f. check orders are cancelled if market is force closed
 
     @Test
     public void testDispatchThroughSequencer() throws Exception {
@@ -307,13 +311,5 @@ public  class StretchAlgoTest extends SequencerTestCase {
         assertTrue(container.getState().getChildOrders().size() == 3); // to assert no active orders but there are 3 CANCELLED orders
     }
 
-//    @Test
-//    public void playWithTickMethods(){
-//        final BookUpdateEncoder decoder = new BookUpdateEncoder();
-//        decoder.wrapAndApplyHeader(directBuffer, 0, dire);   //write the encoded output to the direct buffer and spit out the header
-//
-//
-//        createTick0().byteBuffer().get(0);
-//    }
 
 }
