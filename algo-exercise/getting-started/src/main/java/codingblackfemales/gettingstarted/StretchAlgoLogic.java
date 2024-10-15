@@ -26,10 +26,16 @@ import java.util.ArrayList;
  * Assumptions for this logic:
      * We are either provided with a market order to BUY 300 shares or SELL 300 shares by sending 3 child orders
      * If the trend favours BUYING cheap, SELL high for later or vice versa
-     * Orders that are not filled are cancelled by end of Day OR if the market is closed [Public holidays have not been accounted for] - no orders are placed * */
+     * Orders that are not filled are cancelled by end of Day OR if the market is closed [Public holidays have not been accounted for] - no orders are placed *
+ * The logic has been ensured to implement the main SOLID principles such as:
+    * 1. Single responsbility principle
+ *  */
 
 
 public class StretchAlgoLogic implements AlgoLogic {
+    private List<Double> bidAverages = new ArrayList<>();
+    private List<Double> askAverages = new ArrayList<>();
+
     private static final Logger logger = LoggerFactory.getLogger(StretchAlgoLogic.class);
     private  MarketStatus marketStatus;
     private MovingWeightAverageCalculator mwaCalculator ;
@@ -50,8 +56,6 @@ public class StretchAlgoLogic implements AlgoLogic {
     final long childOrderQuantity = 100;
     long parentOrderQuantity = 300; // buy or sell 300 shares (3 child orders of a 100)
     final double TREND_THRESHOLD = 0.5; // use this threshold to avoid algo reacting to small fluctuations in price - prices can only be long so 0.5 is a good measure for a stable market
-    private List<Double> bidAverages = new ArrayList<>();
-    private List<Double> askAverages = new ArrayList<>();
 
     @Override
     public Action evaluate(SimpleAlgoState state) {
@@ -65,10 +69,10 @@ public class StretchAlgoLogic implements AlgoLogic {
 
         /* Exit Condition 1: If Market is closed before logic is triggered - don't return any action */
         if(marketStatus.isMarketClosed() && allChildOrders.isEmpty()) {
-            logger.info("[STRETCH-ALGO] No orders on the market & Market is closed, Not placing new orders ");
+            logger.info("[STRETCH-ALGO] No orders on the market & Market is CLOSED, Not placing new orders ");
             return NoAction.NoAction;
         } else{
-            logger.info("[STRETCH-ALGO] The market is NOT closed, continuing with logic");
+            logger.info("[STRETCH-ALGO] The market is OPEN, continuing with logic");
         }
 
         /* Exit Condition 2: If Market is closed after logic has been triggered - cancel all non-filled orders on the market */
@@ -94,7 +98,7 @@ public class StretchAlgoLogic implements AlgoLogic {
 
         /* Exit Condition 4: Return No action if we do not have sufficient data to calculate the overall trend of the  */
         if (bidAverages.size() < MINIMUM_ORDER_BOOKS || askAverages.size() < MINIMUM_ORDER_BOOKS) {
-            logger.info("[STRETCH-ALGO] Insufficient Moving weight averages to evaluate the market trend, there are currently {} bids averages and {} asks averages", bidAverages.size(), askAverages.size());
+            logger.info("[STRETCH-ALGO] Insufficient Moving weight averages to evaluate the market trend, there are currently {} bids averages and {} asks averages", bidAverages.stream().count(), askAverages.size());
             return NoAction.NoAction;
         }
 
