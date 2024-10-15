@@ -13,10 +13,8 @@ import codingblackfemales.util.Util;
 import messages.order.Side;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.time.*;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
+import java.util.ArrayList;
 
 /* LOGIC: This Algo logic builds on the basic algo logic by
     * Adding orders on the BUY side when favours buying low (sellers are placing lower ask offers than historic data) OR when the market favours selling at a higher price (ask price are going back up), place a SELL order that purchases those 300 shares previously bought at a higher price or vice versa to ensure a profit can be made.
@@ -26,25 +24,38 @@ import java.util.List;
      * 3. If the ask side trend demonstrates a strong decline --> BUY to secure a security at a cheaper price
      * 4. If the bid side shows an increasing trend and the ask side shows an increasing trend -->  SELL those previously acquired shares at a higher price
  * Assumptions for this logic:
- * We are either provided with a market order to BUY 300 shares or SELL 300 shares by sending 3 child orders
- * If the trend favours BUYING cheap, SELL high for later or vice versa
- * Orders that are not filled are cancelled by end of Day OR if the market is closed [Public holidays have not been accounted for] - no orders are placed * */
+     * We are either provided with a market order to BUY 300 shares or SELL 300 shares by sending 3 child orders
+     * If the trend favours BUYING cheap, SELL high for later or vice versa
+     * Orders that are not filled are cancelled by end of Day OR if the market is closed [Public holidays have not been accounted for] - no orders are placed *
+ * The logic has been ensured to implement the main SOLID principles such as:
+    * 1. Single responsbility principle
+ *  */
 
 
 public class StretchAlgoLogic implements AlgoLogic {
+    private List<Double> bidAverages = new ArrayList<>();
+    private List<Double> askAverages = new ArrayList<>();
+
+    private static final Logger logger = LoggerFactory.getLogger(StretchAlgoLogic.class);
+    private  MarketStatus marketStatus;
+    private MovingWeightAverageCalculator mwaCalculator ;
+    private  OrderBookService orderBookService;
+
+    public StretchAlgoLogic(MarketStatus marketStatus, OrderBookService orderBookService, MovingWeightAverageCalculator mwaCalculator) {
+        this.orderBookService = orderBookService;
+        this.marketStatus = marketStatus;
+        this.mwaCalculator = mwaCalculator;
+    }
+
+    public boolean isMarketClosed() {
+        return marketStatus.isMarketClosed();
+    }
+
     final int MINIMUM_ORDER_BOOKS = 6; //
     final int MAX_CHILD_ORDERS = 3;
     final long childOrderQuantity = 100;
     long parentOrderQuantity = 300; // buy or sell 300 shares (3 child orders of a 100)
     final double TREND_THRESHOLD = 0.5; // use this threshold to avoid algo reacting to small fluctuations in price - prices can only be long so 0.5 is a good measure for a stable market
-    // initialise the moving averages list as instance fields to allow the evolute method to accumulate them over several ticks
-    private List<Double> bidAverages = new ArrayList<>();
-    private List<Double> askAverages = new ArrayList<>();
-    private static final LocalTime MARKET_OPEN_TIME = LocalTime.of(8, 0, 0);
-    private static final LocalTime MARKET_CLOSE_TIME = LocalTime.of(16, 35, 0); // market close time is after close market auction window to allow our algo to secure a good ask/bid price
-    private static final ZoneId LONDON_TIME_ZONE = ZoneId.of("Europe/London");
-
-    private static final Logger logger = LoggerFactory.getLogger(StretchAlgoLogic.class);
 
     @Override
     public Action evaluate(SimpleAlgoState state) {
@@ -56,43 +67,38 @@ public class StretchAlgoLogic implements AlgoLogic {
         long totalFilledQuantity = allChildOrders.stream().mapToLong(ChildOrder::getFilledQuantity).sum(); // sum of quantities of all filled orders
         List<ChildOrder> activeChildOrders = state.getActiveChildOrders(); // list of all child orders (active and non-active)
 
-        // Exit Condition 1: If Market is closed before logic is triggered - don't return any action
-        if(isMarketClosed() && allChildOrders.isEmpty()) {
-            logger.info("[STRETCH-ALGO] No orders on the market & Market is closed, Not placing new orders ");
+        /* Exit Condition 1: If Market is closed before logic is triggered - don't return any action */
+        if(marketStatus.isMarketClosed() && allChildOrders.isEmpty()) {
+            logger.info("[STRETCH-ALGO] No orders on the market & Market is CLOSED, Not placing new orders ");
             return NoAction.NoAction;
         } else{
-            logger.info("[STRETCH-ALGO] The market is NOT closed, continuing with logic");
+            logger.info("[STRETCH-ALGO] The market is OPEN, continuing with logic");
         }
 
-        // Exit Condition 2: If Market is closed after logic has been triggered - cancel all non-filled orders on the market
+        /* Exit Condition 2: If Market is closed after logic has been triggered - cancel all non-filled orders on the market */
         List<ChildOrder> ordersToCancel = activeChildOrders.stream().filter(childOrder -> childOrder.getFilledQuantity() == 0).toList();
-        if (isMarketClosed() && !ordersToCancel.isEmpty()){
+        if (marketStatus.isMarketClosed() && !ordersToCancel.isEmpty()){
             for (ChildOrder orderToCancel: ordersToCancel){
                 logger.info("[STRETCH-ALGO] The market is closed. Cancelling day order ID: {} on side: {}", orderToCancel.getOrderId(), orderToCancel.getSide());
                 return new CancelChildOrder(orderToCancel);
             }
-        } else{
-            logger.info("[STRETCH-ALGO] The market is NOT closed and there are no orders to cancel, continuing with logic");
         }
 
-        // Exit Condition 3: Return No action if max count of child orders created or parent order filled (all 3 child orders)
+        /* Exit Condition 3: Return No action if max count of child orders created or parent order filled (all 3 child orders) */
         if (allChildOrders.size() >= MAX_CHILD_ORDERS || totalFilledQuantity >= parentOrderQuantity) {
             logger.info("[STRETCH-ALGO] Maximum number of orders: {} reached OR parent desired quantity has been filled {}. Returning No Action.", allChildOrders.size(), totalFilledQuantity);
             return NoAction.NoAction;
-        } else{
-            logger.info("[STRETCH-ALGO] Max number of children yet to be created OR total filled quantity yet to be reached, continuing with logic");
         }
 
-        // 1. calc the average for each order book --> add that to a list --> add to a list of moving averages --> once list.size() == 6 --> evaluate trend -->
-        List<OrderBookLevel> bidLevels = getOrderBookLevels(state).get("Bid");
-        List<OrderBookLevel> askLevels = getOrderBookLevels(state).get("Ask");
-        double bidMovingWeightAverage = calculateMovingWeightAverage(bidLevels);
-        double askMovingWeightAverage = calculateMovingWeightAverage(askLevels);
-        bidAverages.add(bidMovingWeightAverage);
-        askAverages.add(askMovingWeightAverage);
+        /* Determine the average of one instance of the OrderBook and then append to the list of averages */
+        double bidAverage = mwaCalculator.calculateMovingWeightAverage(orderBookService.getBidLevels(state));
+        double askAverage = mwaCalculator.calculateMovingWeightAverage(orderBookService.getAskLevels(state));
+        bidAverages.add(bidAverage);
+        askAverages.add(askAverage);
 
+        /* Exit Condition 4: Return No action if we do not have sufficient data to calculate the overall trend of the  */
         if (bidAverages.size() < MINIMUM_ORDER_BOOKS || askAverages.size() < MINIMUM_ORDER_BOOKS) {
-            logger.info("[STRETCH-ALGO] Insufficient Moving weight averages to evaluate the market trend, there are currently {} bids averages and {} asks averages", bidAverages.size(), askAverages.size());
+            logger.info("[STRETCH-ALGO] Insufficient Moving weight averages to evaluate the market trend, there are currently {} bids averages and {} asks averages", bidAverages.stream().count(), askAverages.size());
             return NoAction.NoAction;
         }
 
@@ -123,52 +129,7 @@ public class StretchAlgoLogic implements AlgoLogic {
         return NoAction.NoAction;
     }
 
-    /* Method 2: Determine if Market is closed to cancel day orders */
-    public boolean isMarketClosed() {
-        ZonedDateTime timeNow = ZonedDateTime.now(LONDON_TIME_ZONE); // Define London time zone & the present time
-        LocalDate today = LocalDate.now(LONDON_TIME_ZONE); // Declare today's date according to London's time zone
-        ZonedDateTime marketOpenDateTime = ZonedDateTime.of(today, MARKET_OPEN_TIME, LONDON_TIME_ZONE);  // Declare market opening conditions
-        ZonedDateTime marketCloseDateTime = ZonedDateTime.of(today, MARKET_CLOSE_TIME, LONDON_TIME_ZONE); // Declare market closing conditions
-
-        // Deduce if the current time is before opening, after closing, or on a weekend - we will ignore holidays for now
-        return timeNow.isBefore(marketOpenDateTime) || timeNow.isAfter(marketCloseDateTime) || today.getDayOfWeek() == DayOfWeek.SATURDAY || today.getDayOfWeek() == DayOfWeek.SUNDAY; // Market is closed @ or after 4.35pm
-    }
-
-    public HashMap<String, List<OrderBookLevel>> getOrderBookLevels(SimpleAlgoState state) {
-        List<OrderBookLevel> bidMarketOrders = new ArrayList<>(); // initialise an empty list of orderLevel Objects
-        List<OrderBookLevel> askMarketOrders = new ArrayList<>(); // initialise an empty list of orderLevel Objects
-
-        int maxCountOfLevels = Math.max(state.getAskLevels(), state.getBidLevels()); // get max number of levels in order book
-
-        for (int i = 0; i < maxCountOfLevels; i++) {
-            if (state.getBidLevels() > i) { // if there are bid orders --> get the first level price & quantity
-                BidLevel bidLevel = state.getBidAt(i);
-                bidMarketOrders.add(new OrderBookLevel(bidLevel.price, bidLevel.quantity)); // Create a new OrderBookLevel for bid side
-            }
-            if (state.getAskLevels() > i) { // if there are ask orders --> get the first level price & quantity
-                AskLevel askLevel = state.getAskAt(i);
-                askMarketOrders.add(new OrderBookLevel(askLevel.price, askLevel.quantity)); // Create a new OrderBookLevel for ask side
-            }
-        }
-        // to allow us to return both list sin the same method - a hashmap will be used (time complexity of o(1) - easier to lookup
-        HashMap<String, List<OrderBookLevel>> orderBookMap = new HashMap<>();
-        orderBookMap.put("Bid", bidMarketOrders);
-        orderBookMap.put("Ask", askMarketOrders);
-
-        return orderBookMap;
-    }
-
-    public static class OrderBookLevel {
-        public final long price;
-        public final long quantity;
-
-        public OrderBookLevel(long price, long quantity) {
-            this.price = price;
-            this.quantity = quantity;
-        }
-    }
-
-    // Method 3: Evaluate trend based on the list of averages we have on the most recent 6 instances of historical data
+    /* Method 3: Evaluate trend based on the list of averages we have on the most recent 6 instances of historical data */
     public double evaluateTrendUsingMWAList(List<Double> listOfAverages) {
         double sumOfDifferences = 0;
 
@@ -179,18 +140,5 @@ public class StretchAlgoLogic implements AlgoLogic {
             }
         }
         return sumOfDifferences;
-    }
-
-    public double calculateMovingWeightAverage(List<OrderBookLevel> OrderBookLevel) {
-        long totalQuantityAccumulated = 0;
-        double weightedSum = 0;
-        double weightedAverage;
-        // Loop over OrderBooks instead of levels in 1 OrderBook! 6 averages are calculated in this method
-        for (OrderBookLevel order : OrderBookLevel) {
-            totalQuantityAccumulated += order.quantity;
-            weightedSum += (order.price * order.quantity);
-        }
-        weightedAverage = Math.round((weightedSum / totalQuantityAccumulated) * 100.0) / 100.0;
-        return totalQuantityAccumulated > 0 ? weightedAverage : 0;
     }
 }
