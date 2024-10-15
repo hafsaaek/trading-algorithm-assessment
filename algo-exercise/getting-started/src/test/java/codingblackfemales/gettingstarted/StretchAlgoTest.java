@@ -31,6 +31,11 @@ import static org.junit.Assert.*;
 
 public  class StretchAlgoTest extends SequencerTestCase {
     private MarketStatus marketStatus;
+    private MovingWeightAverageCalculator mwaCalculator;
+    private OrderBookService orderBookService;
+    private StretchAlgoLogic logicInstance;
+    private StretchAlgoLogic marketIsForcedOpenInstance;
+    private StretchAlgoLogic marketIsForcedClosedInstance;
 
     protected AlgoContainer container;
 
@@ -44,7 +49,7 @@ public  class StretchAlgoTest extends SequencerTestCase {
 
         container = new AlgoContainer(new MarketDataService(runTrigger), new OrderService(runTrigger), runTrigger, actioner);
         //set my algo logic
-        container.setLogic(new StretchAlgoLogic(marketStatus));
+        container.setLogic(new StretchAlgoLogic(marketStatus, orderBookService, mwaCalculator));
 
         network.addConsumer(new LoggingConsumer());
         network.addConsumer(container.getMarketDataService());
@@ -53,7 +58,6 @@ public  class StretchAlgoTest extends SequencerTestCase {
 
         return sequencer;
     }
-
 
     protected UnsafeBuffer createTick0(){ // UnsafeBuffer provides low-level access to memory, allowing for faster operations
         final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder(); // header of message is encoded to binary format
@@ -133,30 +137,26 @@ public  class StretchAlgoTest extends SequencerTestCase {
         return directBuffer;
     }
 
-    private StretchAlgoLogic logicInstance;
-    private StretchAlgoLogic marketIsForcedOpenInstance;
-    private StretchAlgoLogic marketIsForcedClosedInstance;
-
-
     @BeforeEach
     public void setUp(){
+        orderBookService = new OrderBookService();
         marketStatus = new MarketStatus();
-        logicInstance = new StretchAlgoLogic(marketStatus);
+        mwaCalculator = new MovingWeightAverageCalculator(orderBookService);
+        logicInstance = new StretchAlgoLogic(marketStatus, orderBookService, mwaCalculator);
         MarketStatus marketIsForcedOpen = new MarketStatus() {
             @Override
             public boolean isMarketClosed() {
                 return false;  // Force open
             }
         };
-
         MarketStatus marketIsForcedClosed = new MarketStatus() {
             @Override
             public boolean isMarketClosed() {
                 return true;  // Force closed
             }
         };
-        marketIsForcedOpenInstance = new StretchAlgoLogic(marketIsForcedOpen);
-        marketIsForcedClosedInstance = new StretchAlgoLogic(marketIsForcedClosed);
+        marketIsForcedOpenInstance = new StretchAlgoLogic(marketIsForcedOpen, orderBookService, mwaCalculator);
+        marketIsForcedClosedInstance = new StretchAlgoLogic(marketIsForcedClosed, orderBookService, mwaCalculator);
     }
 
     // Test 1: Check isMarketClosed behaves as expected
@@ -178,7 +178,41 @@ public  class StretchAlgoTest extends SequencerTestCase {
         assertTrue(marketIsForcedClosedInstance.isMarketClosed()); // returns true for forced closed instance
     }
 
-    // Test 2: Now that testIsMarketClosedFunction is working as expected - check other areas of the code
+    @Test
+    public void testNoOrdersCreatedIfMarketClosed() throws Exception {
+        container.setLogic(marketIsForcedClosedInstance); // should return no action and say we can't place orders because the market is closed
+        send(createTick0());
+        assertTrue(container.getState().getChildOrders().isEmpty());
+        Action returnAction = marketIsForcedClosedInstance.evaluate(container.getState());
+        assertEquals(NoAction.class, returnAction.getClass());
+
+    }
+
+    @Test
+    public void testMovingWeightAverageCalculatorMethod(){
+        List<OrderBookService.OrderBookLevel> orderArray = new ArrayList<OrderBookService.OrderBookLevel>();
+        OrderBookService.OrderBookLevel order1 = new OrderBookService.OrderBookLevel(100, 100);
+        OrderBookService.OrderBookLevel order2 = new OrderBookService.OrderBookLevel(90, 200);
+        OrderBookService.OrderBookLevel order3 = new OrderBookService.OrderBookLevel(80, 300);
+////        UnsafeBuffer sampleOrder = createTick0(100, 100);
+        orderArray.addAll(Arrays.asList(order1, order2 ,order3));
+        double movingWeightAverage = mwaCalculator.calculateMovingWeightAverage(orderArray);
+//        System.out.println(movingWeightAverage);
+        assertEquals(86.67, movingWeightAverage, 0.01);
+    }
+
+    @Test
+    public void testTrendEvaluatorMethod(){
+        List<Double> listOfAverages = Arrays.asList(90.0, 91.0, 92.0, 93.0, 94.0, 95.0);
+        assertEquals(5, logicInstance.evaluateTrendUsingMWAList(listOfAverages), 0.1);
+
+        List<Double> listOfAverages2 = Arrays.asList(95.0, 94.0, 93.0, 92.0, 91.0, 90.0);
+        assertEquals(-5, logicInstance.evaluateTrendUsingMWAList(listOfAverages2), 0.1);
+
+
+    }
+
+    // Test : Now that testIsMarketClosedFunction is working as expected - check other areas of the code
     // a. Test no orders are created if market is closed
     // b. Test no orders are created till we have 6 MWAs
     // c. Test no orders are created if trend is stable
@@ -220,43 +254,19 @@ public  class StretchAlgoTest extends SequencerTestCase {
         assertTrue(container.getState().getActiveChildOrders().stream().allMatch(childOrder -> childOrder.getPrice() == expectedBidPrice)); //
 
 
-        // 5. Assert that the average calculator methods works as expected for order books (basic tick and BUY tick)
-        // ideally would want to calculate the order book of 5 iterations of createTick() and 1 of createTickBidMarketFavourable()
-        List<StretchAlgoLogic.OrderBookLevel> orderArray = new ArrayList<StretchAlgoLogic.OrderBookLevel>();
-        StretchAlgoLogic.OrderBookLevel order1 = new StretchAlgoLogic.OrderBookLevel(100, 100);
-        StretchAlgoLogic.OrderBookLevel order2 = new StretchAlgoLogic.OrderBookLevel(90, 200);
-        StretchAlgoLogic.OrderBookLevel order3 = new StretchAlgoLogic.OrderBookLevel(80, 300);
-//        UnsafeBuffer sampleOrder = createTick0(100, 100);
-        orderArray.addAll(Arrays.asList(order1, order2 ,order3));
-        double movingWeightAverage = Math.abs(logicInstance.calculateMovingWeightAverage(orderArray));
-        assertEquals(86.67, movingWeightAverage, 0.01);
-
-        // 6. Assert that the average trend evaluation using list of averages is working as expected
-        List<Double> listOfAverages = Arrays.asList(90.0, 91.0, 92.0, 93.0, 94.0, 95.0);
-        assertEquals(5, logicInstance.evaluateTrendUsingMWAList(listOfAverages), 0.1);
-
-        // 7. Assert no more orders are created if the trend changes e.g., it's more favourable to SELL now (we don't have stocks to sell yet, should still BUY)
+        // 5. Assert no more orders are created if the trend changes e.g., it's more favourable to SELL now (we don't have stocks to sell yet, should still BUY)
         send(createTickSELLHigh());
         send(createTickBUYLow());
         assertTrue(container.getState().getChildOrders().size() == 3);
         assertTrue(container.getState().getActiveChildOrders().size() == 3);
 
-        // 8. test these ALL ACTIVE orders are cancelled if the market closes
+        // 6. test these ALL ACTIVE orders are cancelled if the market closes
         container.setLogic(marketIsForcedClosedInstance);
         send(createTickBUYLow());
         assertTrue(container.getState().getActiveChildOrders().isEmpty());
         assertTrue(container.getState().getChildOrders().size() == 3); // to assert no active orders but there are 3 CANCELLED orders
     }
 
-    @Test
-    public void testNoOrdersCreatedIfMarketClosed() throws Exception {
-        container.setLogic(marketIsForcedClosedInstance); // should return no action and say we can't place orders because the market is closed
-        send(createTick0());
-        assertTrue(container.getState().getChildOrders().isEmpty());
-        Action returnAction = logicInstance.evaluate(container.getState());
-        assertEquals(NoAction.class, returnAction.getClass());
-
-    }
 
     @Test
     public void testSellCondition() throws Exception {
@@ -288,21 +298,14 @@ public  class StretchAlgoTest extends SequencerTestCase {
         assertTrue(container.getState().getActiveChildOrders().stream().allMatch(childOrder -> childOrder.getPrice() == expectedBidPrice)); //
 
 
-        // 5. Assert that the average calculator methods works as expected for order books (basic tick and BUY tick)
-        // ideally would want to calculate the order book of 5 iterations of createTick() and 1 of createTickBidMarketFavourable()
-
-        // 6. Assert that the average trend evaluation using list of averages is working as expected
-        List<Double> listOfAverages = Arrays.asList(95.0, 94.0, 93.0, 92.0, 91.0, 90.0);
-        assertEquals(-5, logicInstance.evaluateTrendUsingMWAList(listOfAverages), 0.1);
-
-        // 7. Assert no more orders are created if the trend changes e.g., it's more favourable to SELL now (we don't have stocks to sell yet, should still BUY)
+        // 4. Assert no more orders are created if the trend changes e.g., it's more favourable to SELL now (we don't have stocks to sell yet, should still BUY)
         send(createTickBUYLow());
         send(createTickBUYLow());
         send(createTickSELLHigh());
         assertTrue(container.getState().getChildOrders().size() == 3);
         assertTrue(container.getState().getActiveChildOrders().size() == 3);
 
-        // 8. test these ALL ACTIVE orders are cancelled if the market closes
+        // 5. test these ALL ACTIVE orders are cancelled if the market closes
         container.setLogic(marketIsForcedClosedInstance);
         send(createTickBUYLow());
         assertTrue(container.getState().getActiveChildOrders().isEmpty());

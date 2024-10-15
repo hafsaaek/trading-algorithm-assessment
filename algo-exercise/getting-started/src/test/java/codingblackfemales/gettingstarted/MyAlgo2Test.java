@@ -40,18 +40,22 @@ public class MyAlgo2Test extends AbstractAlgoTest {
 
     @Test
     public void testDispatchThroughSequencer() throws Exception {
+        // check no orders on the market before sending an update
         assertTrue(container.getState().getChildOrders().isEmpty());
 
+        // simulate the market being open
         container.setLogic(myAlgoLogic2ForcedOpen);
         //create a sample market data tick....
         send(createTick());
-
-        //simple assert to check we had 3 orders created
+        //simple assert to check we had 3 orders created, all active
         assertEquals(3, container.getState().getChildOrders().size());
         assertEquals(3, container.getState().getActiveChildOrders().size());
 
-        container.setLogic(myAlgoLogic2ForcedClosed);
+        send(createTick2());
+        assertEquals(3, container.getState().getChildOrders().size());
 
+        // simulate the market closing to check we have cancelled active orders
+        container.setLogic(myAlgoLogic2ForcedClosed);
         send(createTick2());
         assertEquals(3, container.getState().getChildOrders().size());
         assertTrue(container.getState().getActiveChildOrders().isEmpty());
