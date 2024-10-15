@@ -32,7 +32,6 @@ public class StretchAlgoBackTest extends AbstractAlgoBackTest {
         return new StretchAlgoLogic(marketStatus,orderBookService, mwaCalculator);
     }
 
-
     @BeforeEach
     public void setUp(){
         orderBookService = new OrderBookService();
