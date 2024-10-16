@@ -7,22 +7,11 @@ import codingblackfemales.sotw.OrderState;
 import codingblackfemales.action.NoAction;
 
 
-import static org.junit.Assert.assertEquals;
-// import org.junit.jupiter.api.DisplayName;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.*;
 
 import org.junit.Test;
 
-/**
- * This test is designed to check your algo behavior in isolation of the order book.
- *
- * You can tick in market data messages by creating new versions of createTick() (ex. createTick2, createTickMore etc..)
- *
- * You should then add behaviour to your algo to respond to that market data by creating or cancelling child orders.
- *
- * When you are comfortable you algo does what you expect, then you can move on to creating the MyAlgoBackTest.
- *
- */
+
 public class MyAlgoTest extends AbstractAlgoTest {
 
     @Override
@@ -41,7 +30,7 @@ public class MyAlgoTest extends AbstractAlgoTest {
         7. No new orders are created after totalFilledQuantity == ParentOrderQuantity i.e. ensure totalFilledQuantity is never > ParentOrderQuantity DONE
      */
 
-    MyAlgoLogic mylogic = new MyAlgoLogic();
+    MyAlgoLogic myLogic = new MyAlgoLogic();
 
     @Test
     // @DisplayName
@@ -64,7 +53,7 @@ public class MyAlgoTest extends AbstractAlgoTest {
 
         // Send another tick and assert NoAction is returned after re-triggering the market to further prove no more than 4 orders are created
         send(createTick());
-        Action returnAction = mylogic.evaluate(container.getState());
+        Action returnAction = myLogic.evaluate(container.getState());
         assertEquals(NoAction.class, returnAction.getClass());
     }
 
@@ -127,7 +116,7 @@ public class MyAlgoTest extends AbstractAlgoTest {
 
         /* Re-trigger market data to ensure that No action is returned after all 3 orders are filled */
         send(createTick2());
-        Action returnAction = mylogic.evaluate(container.getState());
+        Action returnAction = myLogic.evaluate(container.getState());
 
         assertEquals(NoAction.class, returnAction.getClass()); // response should 3 orders have been filled - no mor action to take as per logic!
     }

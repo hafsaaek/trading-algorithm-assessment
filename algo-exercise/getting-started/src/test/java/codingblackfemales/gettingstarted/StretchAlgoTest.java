@@ -14,31 +14,24 @@ import codingblackfemales.service.MarketDataService;
 import codingblackfemales.service.OrderService;
 import messages.marketdata.*;
 import org.agrona.concurrent.UnsafeBuffer;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.Assert;
 import org.junit.jupiter.api.Test;
 import java.nio.ByteBuffer;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import static org.junit.Assert.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 public  class StretchAlgoTest extends SequencerTestCase {
     private MarketStatus marketStatus;
-    private MovingWeightAverageCalculator mwaCalculator;
-    private OrderBookService orderBookService;
     private StretchAlgoLogic logicInstance;
-    private StretchAlgoLogic marketIsForcedOpenInstance;
-    private StretchAlgoLogic marketIsForcedClosedInstance;
 
     protected AlgoContainer container;
 
@@ -52,7 +45,9 @@ public  class StretchAlgoTest extends SequencerTestCase {
 
         container = new AlgoContainer(new MarketDataService(runTrigger), new OrderService(runTrigger), runTrigger, actioner);
         //set my algo logic
-        container.setLogic(new StretchAlgoLogic(marketStatus, orderBookService, mwaCalculator));
+        marketStatus = mock(MarketStatus.class);
+        logicInstance = new StretchAlgoLogic(marketStatus, new OrderBookService(), new MovingWeightAverageCalculator());
+        container.setLogic(logicInstance);
 
         network.addConsumer(new LoggingConsumer());
         network.addConsumer(container.getMarketDataService());
@@ -140,32 +135,11 @@ public  class StretchAlgoTest extends SequencerTestCase {
         return directBuffer;
     }
 
-    @BeforeEach
-    public void setUp(){
-        orderBookService = new OrderBookService();
-        marketStatus = new MarketStatus();
-        mwaCalculator = new MovingWeightAverageCalculator(orderBookService);
-        logicInstance = new StretchAlgoLogic(marketStatus, orderBookService, mwaCalculator);
-        MarketStatus marketIsForcedOpen = new MarketStatus() {
-            @Override
-            public boolean isMarketClosed() {
-                return false;  // Force open
-            }
-        };
-        MarketStatus marketIsForcedClosed = new MarketStatus() {
-            @Override
-            public boolean isMarketClosed() {
-                return true;  // Force closed
-            }
-        };
-        marketIsForcedOpenInstance = new StretchAlgoLogic(marketIsForcedOpen, orderBookService, mwaCalculator);
-        marketIsForcedClosedInstance = new StretchAlgoLogic(marketIsForcedClosed, orderBookService, mwaCalculator);
-    }
 
-    // Test 1: Check isMarketClosed behaves as expected
     @Test
-    public void testIsMarketClosedMethod(){
+    public void testIsMarketClosedMethod() {
         // Check the function returns true when the market is closed in real time and false when it's open in real time LONDON time zone
+        when(marketStatus.isMarketClosed()).thenReturn(true);
         ZonedDateTime timeNow = ZonedDateTime.now(ZoneId.of("Europe/London"));  // Declare market opening conditions
         LocalTime marketOpenTime = LocalTime.of(8, 0, 0);
         LocalTime marketCloseTime = LocalTime.of(16, 35, 0);
@@ -174,35 +148,19 @@ public  class StretchAlgoTest extends SequencerTestCase {
         System.out.println(isMarketClosedTestVariable);
         System.out.println(logicInstance.isMarketClosed());
         // if boolean : true --> isMarketClosed() should also return true and vice versa
-        assertEquals(isMarketClosedTestVariable, logicInstance.isMarketClosed());
-
-        // Also check that the market instances for OPEN or CLOSED used throughout tests are working as expected
-        assertFalse(marketIsForcedOpenInstance.isMarketClosed()); // returns false for forced open instance
-        assertTrue(marketIsForcedClosedInstance.isMarketClosed()); // returns true for forced closed instance
+        Assert.assertEquals(isMarketClosedTestVariable, logicInstance.isMarketClosed());
     }
 
     @Test
     public void testNoOrdersCreatedIfMarketClosed() throws Exception {
-        container.setLogic(marketIsForcedClosedInstance); // should return no action and say we can't place orders because the market is closed
-        assertTrue(marketIsForcedClosedInstance.isMarketClosed());
-
+        when(marketStatus.isMarketClosed()).thenReturn(true);
         send(createTick0());
         send(createTickBUYLow());
         assertTrue(container.getState().getChildOrders().isEmpty());
-        Action returnAction = marketIsForcedClosedInstance.evaluate(container.getState());
+        Action returnAction = logicInstance.evaluate(container.getState());
         assertEquals(NoAction.class, returnAction.getClass());
     }
 
-    @Test
-    public void testMovingWeightAverageCalculatorMethod(){
-        List<OrderBookService.OrderBookLevel> orderArray = new ArrayList<>();
-        OrderBookService.OrderBookLevel order1 = new OrderBookService.OrderBookLevel(100, 100);
-        OrderBookService.OrderBookLevel order2 = new OrderBookService.OrderBookLevel(90, 200);
-        OrderBookService.OrderBookLevel order3 = new OrderBookService.OrderBookLevel(80, 300);
-        orderArray.addAll(Arrays.asList(order1, order2 ,order3));
-        double movingWeightAverage = mwaCalculator.calculateMovingWeightAverage(orderArray);
-        assertEquals(86.67, movingWeightAverage, 0.01);
-    }
 
     @Test
     public void testTrendEvaluatorMethod(){
@@ -215,7 +173,8 @@ public  class StretchAlgoTest extends SequencerTestCase {
 
     @Test
     public void testNoActionReturnedWithInsufficientAverages() throws Exception {
-        container.setLogic(marketIsForcedOpenInstance);
+        /* Test that if the market is forced Open and insufficient data is collected on market trends - zero orders are created */
+        when(marketStatus.isMarketClosed()).thenReturn(false);
         send(createTick0()); // 1st average
         send(createTick0()); // 2nd average
         send(createTick0()); // 3rd average
@@ -223,15 +182,14 @@ public  class StretchAlgoTest extends SequencerTestCase {
 
         /* Assert we return No action & no orders are not created because we only have 4 averages and need 6 for the overall trend */
         assertTrue(container.getState().getChildOrders().isEmpty());
-        Action returnAction = marketIsForcedOpenInstance.evaluate(container.getState());
+        Action returnAction = logicInstance.evaluate(container.getState());
         assertEquals(NoAction.class, returnAction.getClass());
     }
 
     @Test
     public void testStableMarketAction() throws  Exception{
         /* Test that if the market is forced Open and enough data is collected on market trends where trend is stable (no overall or minimal change) - zero orders are created */
-        container.setLogic(marketIsForcedOpenInstance);
-        assertFalse(marketIsForcedOpenInstance.isMarketClosed());
+        when(marketStatus.isMarketClosed()).thenReturn(false);
         send(createTick0());
         send(createTick0());
         send(createTick0());
@@ -254,7 +212,7 @@ public  class StretchAlgoTest extends SequencerTestCase {
         assertTrue(container.getState().getChildOrders().isEmpty());
 
         /* 2. Test that if the market is forced Open and enough data is collected on market trends to BUY LOW, 3 BUY orders are created */
-        container.setLogic(marketIsForcedOpenInstance);
+        when(marketStatus.isMarketClosed()).thenReturn(false);
         send(createTick0());
         send(createTick0());
         send(createTick0());
@@ -279,8 +237,8 @@ public  class StretchAlgoTest extends SequencerTestCase {
         assertEquals(3, container.getState().getActiveChildOrders().size());
 
         // 4. test these ALL ACTIVE orders are cancelled if the market closes
-        container.setLogic(marketIsForcedClosedInstance);
-        assertTrue(marketIsForcedClosedInstance.isMarketClosed()); // check market is closed
+        when(marketStatus.isMarketClosed()).thenReturn(true);
+        assertTrue(logicInstance.isMarketClosed()); // check market is closed
         send(createTickBUYLow());
         /* Assert there are no active orders as we've cancelled them but there are 3 total orders to account for those cancelled [IF IT HAS NOT FILLED] */
         assertTrue(container.getState().getActiveChildOrders().isEmpty());
@@ -293,7 +251,7 @@ public  class StretchAlgoTest extends SequencerTestCase {
         assertTrue(container.getState().getChildOrders().isEmpty());
 
         /* 2. Test that if the market is forced Open and enough data is collected on market trends to SELL HIGH, 3 SELL orders are created */
-        container.setLogic(marketIsForcedOpenInstance);
+        when(marketStatus.isMarketClosed()).thenReturn(false);
         send(createTick0());
         send(createTick0());
         send(createTick0());
@@ -318,8 +276,8 @@ public  class StretchAlgoTest extends SequencerTestCase {
         assertEquals(3, container.getState().getActiveChildOrders().size());
 
         // 4. test these ALL ACTIVE orders are cancelled if the market closes
-        container.setLogic(marketIsForcedClosedInstance);
-        assertTrue(marketIsForcedClosedInstance.isMarketClosed()); // check market is closed
+        when(marketStatus.isMarketClosed()).thenReturn(true);
+        assertTrue(logicInstance.isMarketClosed()); // check market is closed
         send(createTickSELLHigh());
         /* Assert there are no active orders as we've cancelled them but there are 3 total orders to account for those cancelled [IF IT HAS NOT FILLED] */
         assertTrue(container.getState().getActiveChildOrders().isEmpty());

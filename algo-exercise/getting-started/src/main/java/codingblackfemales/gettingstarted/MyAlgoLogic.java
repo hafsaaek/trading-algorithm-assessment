@@ -20,6 +20,18 @@ import org.slf4j.LoggerFactory;
 
 public class MyAlgoLogic implements AlgoLogic {
 
+    /** Basic Trading Algorithm Logic:
+     * 1. Maintain 3 passive child orders on the market, each 100 shares, to fill a parent market order of 300 shares .
+     * 2. Create new child orders if there are less than 3 orders on the market.
+     * 3. Cancel the oldest active order when there are 3 or more active orders.
+     * 4. Return NO Action if:
+     *    - Total filled quantity reaches 300 shares.
+     *    - More than 4 child orders (active + canceled) have been created.
+     *    - 3 (fully executed) child orders have fully filled.
+     * 5. Over-Execution has been accounted for because we are ensuring:
+     *    - Total filled quantity of all Orders does not exceed the parent order quantity
+     *    - If 3 orders are fully filled, no more orders are created */
+
     private static final Logger logger = LoggerFactory.getLogger(MyAlgoLogic.class);
 
     @Override
@@ -27,20 +39,7 @@ public class MyAlgoLogic implements AlgoLogic {
 
         var orderBookAsString = Util.orderBookToString(state);
 
-        logger.info("[MY-ALGO] The state of the order book is:\n" + orderBookAsString);
-
-        /** Basic Trading Algorithm Logic:
-            * 1. Maintain 3 passive child orders on the market, each 100 shares, to fill a parent market order of 300 shares .
-            * 2. Create new child orders if there are less than 3 orders on the market.
-            * 3. Cancel the oldest active order when there are 3 or more active orders.
-            * 4. Return NO Action if:
-            *    - Total filled quantity reaches 300 shares.
-            *    - More than 4 child orders (active + canceled) have been created.
-            *    - 3 (fully executed) child orders have fully filled.
-            * 5. Over-Execution has been accounted for because we are ensuring:
-            *    - Total filled quantity of all Orders does not exceed the parent order quantity
-            *    - If 3 orders are fully filled, no more orders are created
-        */
+        logger.info("[MY-ALGO] The state of the order book is:\n{}", orderBookAsString);
 
         long parentOrderQuantity = 300; // assume a client given parent order
         long childOrderQuantity = 100; // fixed child order quantity, assume 1/3 of parent order

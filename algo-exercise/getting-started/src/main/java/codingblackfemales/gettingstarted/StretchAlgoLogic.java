@@ -36,25 +36,20 @@ import java.util.ArrayList;
  *  */
 
 public class StretchAlgoLogic implements AlgoLogic {
-    private List<Double> bidAverages = new ArrayList<>();
-    private List<Double> askAverages = new ArrayList<>();
+    private final List<Double> bidAverages = new ArrayList<>();
+    private final List<Double> askAverages = new ArrayList<>();
 
     private static final Logger logger = LoggerFactory.getLogger(StretchAlgoLogic.class);
-    private  MarketStatus marketStatus;
-    private MovingWeightAverageCalculator mwaCalculator ;
-    private  OrderBookService orderBookService;
+    private final MarketStatus marketStatus;
+    private final MovingWeightAverageCalculator mwaCalculator ;
+    private final OrderBookService orderBookService;
 
     public StretchAlgoLogic(MarketStatus marketStatus, OrderBookService orderBookService, MovingWeightAverageCalculator mwaCalculator) {
         this.orderBookService = orderBookService;
         this.marketStatus = marketStatus;
         this.mwaCalculator = mwaCalculator;
     }
-
-    /* Return this method to allow us to invoke it in test classes - to ask mentor if there's a better way to do this */
-    public boolean isMarketClosed() {
-        return marketStatus.isMarketClosed();
-    }
-
+    
     final int MINIMUM_ORDER_BOOKS = 6; //
     final int MAX_CHILD_ORDERS = 3;
     final long childOrderQuantity = 100;
@@ -103,7 +98,7 @@ public class StretchAlgoLogic implements AlgoLogic {
 
         /* Exit Condition 4: Return No action if we do not have sufficient data to calculate the overall trend of the  */
         if (bidAverages.size() < MINIMUM_ORDER_BOOKS || askAverages.size() < MINIMUM_ORDER_BOOKS) {
-            logger.info("[STRETCH-ALGO] Insufficient Moving weight averages to evaluate the market trend, there are currently {} bids averages and {} asks averages", bidAverages.stream().count(), askAverages.size());
+            logger.info("[STRETCH-ALGO] Insufficient Moving weight averages to evaluate the market trend, there are currently {} bids averages and {} asks averages", bidAverages.size(), askAverages.size());
             return NoAction.NoAction;
         }
 

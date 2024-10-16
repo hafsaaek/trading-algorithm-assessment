@@ -51,7 +51,7 @@ public class MyAlgoBackTest extends AbstractAlgoBackTest {
 
         /* Check we haven't filled anything */
         assertEquals(0, filledOrdersCount);
-        assertTrue(filledQuantity == 0);
+        assertEquals(0, filledQuantity);
 
         /* Send second tick that will trigger one match and verify the logic's reaction when the market moves towards us */
         send(createTick2()); // Ensures one order is filled
@@ -128,7 +128,7 @@ public class MyAlgoBackTest extends AbstractAlgoBackTest {
         send(finalMarketTickOverExecution()); // has more than 300 shares to offer to us at our price
         filledQuantity = state.getActiveChildOrders().stream().mapToLong(ChildOrder::getFilledQuantity).sum();
         assertTrue(filledQuantity != 400);
-        assertTrue(filledQuantity == 300);
+        assertEquals(300, filledQuantity);
 
     }
 
