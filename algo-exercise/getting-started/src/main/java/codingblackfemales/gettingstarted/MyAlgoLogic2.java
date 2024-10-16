@@ -49,24 +49,21 @@ public class MyAlgoLogic2 implements AlgoLogic {
 
         // 1.1 Find filled active orders & deduce total filled quantity & Cancel non-filled orders if the market is closed
         for (ChildOrder activeChildOrder : activeChildOrders) {
-            if (activeChildOrder.getFilledQuantity() == childOrderQuantity) {
+            if (activeChildOrder.getFilledQuantity() == childOrderQuantity) { // if my child order of 100 is
                 filledOrders.add(activeChildOrder);
-            }  // 1.2 If there are active orders more than 3, cancel the oldest order
+            }  // 1.2 If an active is not filled by the time the market closes - cancel it
             if (!filledOrders.contains(activeChildOrder) && isMarketClosed() && !activeChildOrders.isEmpty()) {
                 logger.info("[STRETCH-ALGO] The market is closed, cancelling orders ");
-                ChildOrder nonFilledOrderToCancel = activeChildOrders.get(0); // stream & filter to active but not filled orders!
-                logger.info("[STRETCH-ALGO] Cancelling day order: {}", nonFilledOrderToCancel);
-                logger.info("[STRETCH-ALGO] Order State: {}", nonFilledOrderToCancel.getState());
-                return new CancelChildOrder(nonFilledOrderToCancel);
+                logger.info("[STRETCH-ALGO] Cancelling day order: {}", activeChildOrder);
+                logger.info("[STRETCH-ALGO] Order State: {}", activeChildOrder.getState());
+                return new CancelChildOrder(activeChildOrder);
             }
         }
         logger.info("[STRETCH-ALGO] Filled Orders Count: {}", filledOrders.size()); // using + concatenation will use memory to log info we don't need to call yet
 
         int activeNonFilledOrders = activeChildOrders.size() - filledOrders.size(); // to store  non-filled cancelled orders
 
-        long totalFilledQuantity = allChildOrders.stream()
-                .mapToLong(ChildOrder::getFilledQuantity)
-                .sum(); // sum of quantities of all filled orders
+        long totalFilledQuantity = allChildOrders.stream().mapToLong(ChildOrder::getFilledQuantity).sum(); // sum of quantities of all filled orders
         logger.info("[STRETCH-ALGO] Total Filled Quantity for orders: {}", totalFilledQuantity);
 
         // 2 Stop if total filled quantity meets the parent order quantity and there are 3 fully filled orders
@@ -77,7 +74,7 @@ public class MyAlgoLogic2 implements AlgoLogic {
 
         // 3 Stop if we've reached the max number of child orders (active + cancelled) or the market is closed
         if (allChildOrders.size() >= maxOrders || isMarketClosed()) {
-            logger.info("[STRETCH-ALGO] Maximum number of child orders created: {} Or Market is closed: {} UK local time", allChildOrders.size(), isMarketClosed());
+            logger.info("[STRETCH-ALGO] Maximum number of child orders created: [{}] Or Market is closed: [{}]", allChildOrders.size(), isMarketClosed());
             return NoAction;
         }
 

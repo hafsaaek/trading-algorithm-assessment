@@ -4,270 +4,254 @@ import codingblackfemales.action.Action;
 import codingblackfemales.action.NoAction;
 import codingblackfemales.algo.AlgoLogic;
 import codingblackfemales.sotw.ChildOrder;
-import codingblackfemales.container.Actioner;
-import codingblackfemales.container.AlgoContainer;
-import codingblackfemales.container.RunTrigger;
-import codingblackfemales.orderbook.OrderBook;
-import codingblackfemales.orderbook.channel.MarketDataChannel;
-import codingblackfemales.orderbook.channel.OrderChannel;
-import codingblackfemales.orderbook.consumer.OrderBookInboundOrderConsumer;
-import codingblackfemales.sequencer.DefaultSequencer;
-import codingblackfemales.sequencer.Sequencer;
-import codingblackfemales.sequencer.consumer.LoggingConsumer;
-import codingblackfemales.sequencer.marketdata.SequencerTestCase;
-import codingblackfemales.sequencer.net.TestNetwork;
-import codingblackfemales.service.MarketDataService;
-import codingblackfemales.service.OrderService;
-import messages.marketdata.*;
-import org.agrona.concurrent.UnsafeBuffer;
-import org.junit.Assert;
-import org.junit.BeforeClass;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.nio.ByteBuffer;
-import java.util.HashMap;
+import java.time.DayOfWeek;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
-import static junit.framework.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.Assert.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class StretchAlgoBackTest extends SequencerTestCase {
-
-
-    protected AlgoContainer container;
+public class StretchAlgoBackTest extends AbstractAlgoBackTest {
+    private OrderBookService orderBookService;
+    private MarketStatus marketStatus;
+    private MovingWeightAverageCalculator mwaCalculator;
+    private StretchAlgoLogic logicInstance;
+    private StretchAlgoLogic marketIsForcedOpenInstance;
+    private StretchAlgoLogic marketIsForcedClosedInstance;
 
     @Override
-    public Sequencer getSequencer() {
-        final TestNetwork network = new TestNetwork();
-        final Sequencer sequencer = new DefaultSequencer(network);
-
-        final RunTrigger runTrigger = new RunTrigger();
-        final Actioner actioner = new Actioner(sequencer);
-
-        final MarketDataChannel marketDataChannel = new MarketDataChannel(sequencer);
-        final OrderChannel orderChannel = new OrderChannel(sequencer);
-        final OrderBook book = new OrderBook(marketDataChannel, orderChannel);
-
-        final OrderBookInboundOrderConsumer orderConsumer = new OrderBookInboundOrderConsumer(book);
-
-        container = new AlgoContainer(new MarketDataService(runTrigger), new OrderService(runTrigger), runTrigger, actioner);
-        //set my algo logic
-        container.setLogic(new OldStretchAlgoLogic());
-
-        network.addConsumer(new LoggingConsumer());
-        network.addConsumer(book);
-        network.addConsumer(container.getMarketDataService());
-        network.addConsumer(container.getOrderService());
-        network.addConsumer(orderConsumer);
-        network.addConsumer(container);
-
-        return sequencer;
+    public AlgoLogic createAlgoLogic() {
+        return new StretchAlgoLogic(marketStatus,orderBookService, mwaCalculator);
     }
 
-//    public abstract AlgoLogic createAlgoLogic();
-
-    protected UnsafeBuffer createTickNotEnoughLevelsForWMA(){
-        final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder();
-        final BookUpdateEncoder encoder = new BookUpdateEncoder();
-        final ByteBuffer byteBuffer = ByteBuffer.allocateDirect(1024);
-        final UnsafeBuffer directBuffer = new UnsafeBuffer(byteBuffer);
-        //write the encoded output to the direct buffer
-        encoder.wrapAndApplyHeader(directBuffer, 0, headerEncoder);
-        //set the fields to desired values
-        encoder.venue(Venue.XLON);
-        encoder.instrumentId(123L);
-        encoder.bidBookCount(3)
-                .next().price(98L).size(100L)
-                .next().price(95L).size(200L)
-                .next().price(91L).size(300L);
-
-        encoder.askBookCount(4)
-                .next().price(100L).size(101L)
-                .next().price(110L).size(200L)
-                .next().price(115L).size(5000L)
-                .next().price(119L).size(5600L);
-
-        encoder.instrumentStatus(InstrumentStatus.CONTINUOUS);
-        encoder.source(Source.STREAM);
-        return directBuffer;
-    }
-
-    protected UnsafeBuffer createTickVolatileMarket(){
-        final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder();
-        final BookUpdateEncoder encoder = new BookUpdateEncoder();
-
-        final ByteBuffer byteBuffer = ByteBuffer.allocateDirect(1024);
-        final UnsafeBuffer directBuffer = new UnsafeBuffer(byteBuffer);
-
-        //write the encoded output to the direct buffer
-        encoder.wrapAndApplyHeader(directBuffer, 0, headerEncoder);
-
-        //set the fields to desired values
-        encoder.venue(Venue.XLON);
-        encoder.instrumentId(123L);
-        encoder.source(Source.STREAM);
-
-        // bid prices are decreasing and ask is increasing leading to a large spread and widening gap - volatile market
-        // good place to not create orders
-        encoder.bidBookCount(6)
-                .next().price(100).size(100L)
-                .next().price(99).size(100L)
-                .next().price(98L).size(100L)
-                .next().price(97).size(200L)
-                .next().price(96).size(300L)
-                .next().price(95L).size(400L);
-
-        encoder.askBookCount(6)
-                .next().price(105L).size(101L)
-                .next().price(110L).size(200L)
-                .next().price(112L).size(300L)
-                .next().price(115L).size(500L)
-                .next().price(117L).size(500L)
-                .next().price(119L).size(5600L);
-
-        encoder.instrumentStatus(InstrumentStatus.CONTINUOUS);
-
-        return directBuffer;
-    }
-
-    protected UnsafeBuffer createTickStableMarket(){
-        final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder();
-        final BookUpdateEncoder encoder = new BookUpdateEncoder();
-        final ByteBuffer byteBuffer = ByteBuffer.allocateDirect(1024);
-        final UnsafeBuffer directBuffer = new UnsafeBuffer(byteBuffer);
-        //write the encoded output to the direct buffer
-        encoder.wrapAndApplyHeader(directBuffer, 0, headerEncoder);
-        //set the fields to desired values
-        encoder.venue(Venue.XLON);
-        encoder.instrumentId(123L);
-        encoder.source(Source.STREAM);
-
-        // stable market: bid mwa: , ask mwa: 0.17 (both are < trend threshold which is 0.5)
-        encoder.bidBookCount(6)
-                .next().price(95L).size(100L)
-                .next().price(95L).size(100L)
-                .next().price(95L).size(100L)
-                .next().price(95L).size(100L)
-                .next().price(95L).size(100L)
-                .next().price(96L).size(100L);
-        encoder.askBookCount(6)
-                .next().price(96L).size(100L)
-                .next().price(96L).size(100L)
-                .next().price(96L).size(100L)
-                .next().price(97).size(100L)
-                .next().price(96L).size(100L)
-                .next().price(96L).size(100L);
-        encoder.instrumentStatus(InstrumentStatus.CONTINUOUS);
-
-        return directBuffer;
-    }
-
-    protected UnsafeBuffer createTickBuyLow(){
-
-        final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder();
-        final BookUpdateEncoder encoder = new BookUpdateEncoder();
-
-        final ByteBuffer byteBuffer = ByteBuffer.allocateDirect(1024);
-        final UnsafeBuffer directBuffer = new UnsafeBuffer(byteBuffer);
-
-        //write the encoded output to the direct buffer
-        encoder.wrapAndApplyHeader(directBuffer, 0, headerEncoder);
-
-        //set the fields to desired values
-        encoder.venue(Venue.XLON);
-        encoder.instrumentId(123L);
-        encoder.source(Source.STREAM);
-
-        encoder.bidBookCount(6)
-                .next().price(95L).size(100L)
-                .next().price(94L).size(100L)
-                .next().price(93L).size(100L)
-                .next().price(92L).size(100L)
-                .next().price(91L).size(100L)
-                .next().price(90L).size(100L)
-
-               ;
-
-        encoder.askBookCount(6)
-                .next().price(100L).size(100L)
-                .next().price(99L).size(100L)
-                .next().price(98L).size(100L)
-                .next().price(97L).size(100L)
-                .next().price(96L).size(100L)
-//                .next().price(95).size(400L)
-                .next().price(95).size(100L);
-
-        encoder.instrumentStatus(InstrumentStatus.CONTINUOUS);
-
-        return directBuffer;
-    }
-
-    // You can use a setup method to specify which logic oyu wan to use before
-
-    @Test
-    public void testNoReturnActions() throws Exception {
-        double TREND_THRESHOLD = 0.5;
-
-        // send a sample market data that does not have enough bid Levels
-        send(createTickNotEnoughLevelsForWMA());
-        // simple assert to check we don't create orders as we only have 3 bids and 4 asks and need 6 & 6 respectively
-        assertTrue(container.getState().getChildOrders().size() == 0);
-        //logger: [STRETCH-ALGO] We do not have enough orders to evaluate the market trend, there are currently 3 bids and 4 asks
-
-        // send a sample market data that has a large spread and volatile conditions (widening gap between bid and ask offers)
-        send(createTickVolatileMarket());
-        // Assert to check we have created 0 child orders as spread is >= 3 (5 for this tick)
-        assertTrue(container.getState().getChildOrders().size() == 0);
-        // Logger: [STRETCH-ALGO] Order book spread is currently 5 which is equal to or larger than SPREAD_THRESHOLD. Market too volatile to place an order, Returning No Action.
-
-        // send a sample market data that stimulates a market where we would like to hold off so the trend on both sides amount the trend threshold or are slightly below it (<= 0.5)
-        send(createTickStableMarket());
-        assertTrue(container.getState().getChildOrders().size() == 0);
-//         logger: [STRETCH-ALGO] Market is stable, holding off placing orders for the meantime. Returning No Action.
-        OldStretchAlgoLogic stretchLogicBackTest = new OldStretchAlgoLogic();
-        Action returnAction = stretchLogicBackTest.evaluate(container.getState());
-        Assert.assertEquals(NoAction.class, returnAction.getClass());
-//         creating asserts to test we calculate the right MWA trend which should be zero as prices on both sides have not changed at all
-        HashMap<String, List<OldStretchAlgoLogic.OrderBookLevel>> orderLevelsMap = stretchLogicBackTest.getOrderBookLevels(container.getState()); // get map with bid and ask levels
-        double bidMarketTrend = stretchLogicBackTest.evaluateTrendUsingMWA("Bid", orderLevelsMap.get("Bid")); // calculate overall bid trend
-        double askMarketTrend = stretchLogicBackTest.evaluateTrendUsingMWA("Ask", orderLevelsMap.get("Ask")); // calculate overall ask trend
-        assertTrue(bidMarketTrend <=TREND_THRESHOLD && askMarketTrend <= TREND_THRESHOLD); // assert the trend is very insignificant
-//        assertTrue(Math.round(bidMarketTrend * 100)/100 == 0.17 && askMarketTrend == 0.17 ); // assert the trend is very insignificant - should return mwa to 2 decimal points
-
+    @BeforeEach
+    public void setUp(){
+        orderBookService = new OrderBookService();
+        mwaCalculator = new MovingWeightAverageCalculator(orderBookService);
+        marketStatus = new MarketStatus();
+        logicInstance = new StretchAlgoLogic(marketStatus, orderBookService, mwaCalculator);
+        MarketStatus marketIsForcedOpen = new MarketStatus() {
+            @Override
+            public boolean isMarketClosed() {
+                return false;  // Force open
+            }
+        };
+        MarketStatus marketIsForcedClosed = new MarketStatus() {
+            @Override
+            public boolean isMarketClosed() {
+                return true;  // Force closed
+            }
+        };
+        marketIsForcedOpenInstance = new StretchAlgoLogic(marketIsForcedOpen, orderBookService, mwaCalculator);
+        marketIsForcedClosedInstance = new StretchAlgoLogic(marketIsForcedClosed, orderBookService, mwaCalculator);
     }
 
     @Test
-    public void testPlacingBUYOrdersCreatesProfit() throws Exception {
-        //create a sample market data tick....
-        send(createTickBuyLow());
-        send(createTickBuyLow());
-        send(createTickBuyLow());
+    public void testBuyAction() throws Exception {
+        /* 1. check no orders are on the market before triggering logic container */
+        Assertions.assertTrue(container.getState().getChildOrders().isEmpty());
 
-        // Assert to check we have created 3 child orders under good buy conditions
-        assertEquals(3, container.getState().getChildOrders().size());
+        /* 2. Test that if the market is forced Open and enough data is collected on market trends to BUY LOW, 3 BUY orders are created */
+        container.setLogic(marketIsForcedOpenInstance);
+        send(createTick0());
+        send(createTick0());
+        send(createTick0());
+        send(createTick0());
+        send(createTick0());
+        send(createTickBUYLow());
         assertEquals(3, container.getState().getActiveChildOrders().size());
         assertTrue(container.getState().getActiveChildOrders().stream().allMatch(childOrder -> childOrder.getSide().toString().equals("BUY")));
 
-        //then: get the state
-        var state = container.getState();
+        long expectedChildOrderQuantity = 100; // our fixed child order quantity
+        Assertions.assertTrue(container.getState().getActiveChildOrders().stream().allMatch(childOrder -> childOrder.getQuantity() == expectedChildOrderQuantity)); // assert child order on the market has the expected quantity
 
+        long expectedBidPrice = container.getState().getBidAt(0).price; // the price we expect to place the BUY order on the market with
+        System.out.println("price is: " + expectedBidPrice);
+        assertTrue(container.getState().getActiveChildOrders().stream().allMatch(childOrder -> childOrder.getPrice() == expectedBidPrice)); // assert child order on the market has the expected price
+
+        /* 3. Assert no more orders are created if the trend changes e.g., if it's now more favourable to SELL now
+         * This tests we don't pass the max orders that can be created in our Algorithm */
+        send(createTickSELLHigh());
+        send(createTickBUYLow());
+        assertEquals(3, container.getState().getChildOrders().size());
+        assertEquals(3, container.getState().getActiveChildOrders().size());
+
+        /* 3. Check orders are filled when the right opportunity presents itself */
+        send(createTickFillBUYOrders());
         //Check things like filled quantity, cancelled order count etc....
-        long filledQuantity = state.getChildOrders().stream().map(ChildOrder::getFilledQuantity).reduce(Long::sum).get();
+        long filledQuantity = container.getState().getChildOrders().stream().map(ChildOrder::getFilledQuantity).reduce(Long::sum).get();
         //and: check that our algo state was updated to reflect our fills when the market data
-//        assertEquals(300, filledQuantity);
+        assertEquals(300, filledQuantity);
 
-        // A way to track profit: buy 300 shares at whatever price (look ath the first orderbook), then place a sell order for those 300 shares
-
-
+        // 4. test these ALL ACTIVE orders are cancelled if the market closes
+        container.setLogic(marketIsForcedClosedInstance);
+        assertTrue(marketIsForcedClosedInstance.isMarketClosed()); // check market is closed
+        send(createTickBUYLow());
+        /* Assert there are still 3 active orders after market closes */
+        assertEquals(3, container.getState().getActiveChildOrders().size());
+        assertEquals(3, container.getState().getChildOrders().size());
     }
 
-    // 1st test: test you can make profits when market is good to buy
-    // logic: bid prices are increasing - select best bid from first tick - 3 orders are created - on side BUY - - send tick that should ensure orders are not created (stable market) -  send a tick that favours buying low - (increasing bid prices, falling ask prices) - check orders have been filled - check profit is being made (check price executed at) - profit should be price order placed on - price actually bought at - check MWA calculations - send tick that favours creating sell orders and asser no new orders are created - assert more orders are filled
+    @Test
+    public void testSellAction() throws Exception {
+        /* 1. check no orders are on the market before triggering logic container */
+        Assertions.assertTrue(container.getState().getChildOrders().isEmpty());
 
-    // 2nd test - same as above but for selling
+        /* 2. Test that if the market is forced Open and enough data is collected on market trends to SELL HIGH, 3 SELL orders are created */
+        container.setLogic(marketIsForcedOpenInstance);
+        send(createTick0());
+        send(createTick0());
+        send(createTick0());
+        send(createTick0());
+        send(createTickSELLHigh());
+        send(createTickSELLHigh());
+        assertEquals(3, container.getState().getActiveChildOrders().size());
+        Assertions.assertTrue(container.getState().getActiveChildOrders().stream().allMatch(childOrder -> childOrder.getSide().toString().equals("SELL")));
 
+        long expectedChildOrderQuantity = 100; // our fixed child order quantity
+        Assertions.assertTrue(container.getState().getActiveChildOrders().stream().allMatch(childOrder -> childOrder.getQuantity() == expectedChildOrderQuantity)); // assert child order on the market has the expected quantity
+
+        long expectedAskPrice = container.getState().getAskAt(0).price; // the price we expect to place the SELL order on the market with
+        System.out.println("price is: " + expectedAskPrice);
+        Assertions.assertTrue(container.getState().getActiveChildOrders().stream().allMatch(childOrder -> childOrder.getPrice() == expectedAskPrice)); // assert child order on the market has the expected price
+
+        /* 3. Assert no more orders are created if the trend changes e.g., if it's now more favourable to BUY now
+         * This tests we don't pass the max orders that can be created in our Algorithm */
+        send(createTickSELLHigh());
+        send(createTickBUYLow());
+        assertEquals(3, container.getState().getChildOrders().size());
+        assertEquals(3, container.getState().getActiveChildOrders().size());
+
+        /* 4. Check orders are filled when the right opportunity presents itself */
+        send(createTickFillSELLOrders());
+        //Check things like filled quantity, cancelled order count etc....
+        long filledQuantity = container.getState().getChildOrders().stream().map(ChildOrder::getFilledQuantity).reduce(Long::sum).get();
+        //and: check that our algo state was updated to reflect our fills when the market data
+//        assertEquals(300, filledQuantity); // not filling SELL orders now to test cancellation of orders on the market
+
+        // 4. test these ALL ACTIVE orders are cancelled if the market closes
+        container.setLogic(marketIsForcedClosedInstance);
+        assertTrue(marketIsForcedClosedInstance.isMarketClosed()); // check market is closed
+        send(createTickSELLHigh());
+        /* Assert there are still 3 total orders but 0 active as these orders have been cancelled because they are not filled by the time the market closes */
+        assertEquals(0, container.getState().getActiveChildOrders().size());
+        assertEquals(3, container.getState().getChildOrders().size());
+
+
+        // 6. Profit made after BUYING at 96 as per testBUYCondition, the profit is:
+        System.out.println("Profit made is: " + (expectedAskPrice - 96));
+    }
+
+    // Test 1: Check isMarketClosed behaves as expected
+    @Test
+    public void testIsMarketClosedMethod(){
+        // Check the function returns true when the market is closed in real time and false when it's open in real time LONDON time zone
+        ZonedDateTime timeNow = ZonedDateTime.now(ZoneId.of("Europe/London"));  // Declare market opening conditions
+        LocalTime marketOpenTime = LocalTime.of(8, 0, 0);
+        LocalTime marketCloseTime = LocalTime.of(16, 35, 0);
+        // declare a boolean that will hold true for all market closed conditions (except holidays)
+        boolean isMarketClosedTestVariable = timeNow.toLocalTime().isBefore(marketOpenTime) || timeNow.toLocalTime().isAfter(marketCloseTime) || timeNow.toLocalDate().getDayOfWeek() == DayOfWeek.SATURDAY || timeNow.toLocalDate().getDayOfWeek() == DayOfWeek.SUNDAY;
+        System.out.println(isMarketClosedTestVariable);
+        System.out.println(logicInstance.isMarketClosed());
+        // if boolean : true --> isMarketClosed() should also return true and vice versa
+        assertEquals(isMarketClosedTestVariable, logicInstance.isMarketClosed());
+
+        // Also check that the market instances for OPEN or CLOSED used throughout tests are working as expected
+        assertFalse(marketIsForcedOpenInstance.isMarketClosed()); // returns false for forced open instance
+        Assertions.assertTrue(marketIsForcedClosedInstance.isMarketClosed()); // returns true for forced closed instance
+    }
+
+    @Test
+    public void testMovingWeightAverageCalculatorMethod(){
+        List<OrderBookService.OrderBookLevel> orderArray = new ArrayList<>();
+        OrderBookService.OrderBookLevel order1 = new OrderBookService.OrderBookLevel(100, 100);
+        OrderBookService.OrderBookLevel order2 = new OrderBookService.OrderBookLevel(90, 200);
+        OrderBookService.OrderBookLevel order3 = new OrderBookService.OrderBookLevel(80, 300);
+        orderArray.addAll(Arrays.asList(order1, order2 ,order3));
+        double movingWeightAverage = mwaCalculator.calculateMovingWeightAverage(orderArray);
+        assertEquals(86.67, movingWeightAverage, 0.01);
+    }
+
+    @Test
+    public void testTrendEvaluatorMethod(){
+        List<Double> listOfAverages = Arrays.asList(90.0, 91.0, 92.0, 93.0, 94.0, 95.0);
+        assertEquals(5, logicInstance.evaluateTrendUsingMWAList(listOfAverages), 0.1);
+
+        List<Double> listOfAverages2 = Arrays.asList(95.0, 94.0, 93.0, 92.0, 91.0, 90.0);
+        assertEquals(-5, logicInstance.evaluateTrendUsingMWAList(listOfAverages2), 0.1);
+    }
+
+    @Test
+    public void testNoActionReturnedWithInsufficientAverages() throws Exception {
+        container.setLogic(marketIsForcedOpenInstance);
+        send(createTick0()); // 1st average
+        send(createTick0()); // 2nd average
+        send(createTick0()); // 3rd average
+        send(createTick0()); // 4th average
+
+        /* Assert we return No action & no orders are not created because we only have 4 averages and need 6 for the overall trend */
+        Assertions.assertTrue(container.getState().getChildOrders().isEmpty());
+        Action returnAction = marketIsForcedOpenInstance.evaluate(container.getState());
+        assertEquals(NoAction.class, returnAction.getClass());
+    }
+
+    @Test
+    public void testStableMarketAction() throws  Exception{
+        /* Test that if the market is forced Open and enough data is collected on market trends where trend is stable (no overall or minimal change) - zero orders are created */
+        container.setLogic(marketIsForcedOpenInstance);
+        assertFalse(marketIsForcedOpenInstance.isMarketClosed());
+        send(createTick0());
+        send(createTick0());
+        send(createTick0());
+        send(createTick0());
+        send(createTick0());
+        Assertions.assertTrue(container.getState().getActiveChildOrders().isEmpty());
+        Assertions.assertTrue(container.getState().getChildOrders().isEmpty());
+
+        /* Test triggering the market again doesn't create new orders again*/
+        send(createTick0());
+        send(createTick0());
+        Assertions.assertTrue(container.getState().getChildOrders().isEmpty());
+        Assertions.assertTrue(container.getState().getActiveChildOrders().isEmpty());
+    }
+
+    // Test 1: Check isMarketClosed behaves as expected
+    @Test
+    public void testIsMarketClosedFunction() {
+        // Check the function returns true when the market is closed in real time and false when it's open in real time LONDON time zone
+        ZonedDateTime timeNow = ZonedDateTime.now(ZoneId.of("Europe/London"));  // Declare market opening conditions
+        LocalTime marketOpenTime = LocalTime.of(8, 0, 0);
+        LocalTime marketCloseTime = LocalTime.of(16, 35, 0);
+        // declare a boolean that will hold true for all market closed conditions (except holidays)
+        boolean isMarketClosedTestVariable = timeNow.toLocalTime().isBefore(marketOpenTime) || timeNow.toLocalTime().isAfter(marketCloseTime) || timeNow.toLocalDate().getDayOfWeek() == DayOfWeek.SATURDAY || timeNow.toLocalDate().getDayOfWeek() == DayOfWeek.SUNDAY;
+        System.out.println(isMarketClosedTestVariable);
+        System.out.println(logicInstance.isMarketClosed());
+        // if boolean : true --> isMarketClosed() should also return true and vice versa
+        assertEquals(isMarketClosedTestVariable, logicInstance.isMarketClosed());
+
+        // Also check that the market instances for OPEN or CLOSED used throughout tests are working as expected
+        assertFalse(marketIsForcedOpenInstance.isMarketClosed()); // returns false for forced open instance
+        assertTrue(marketIsForcedClosedInstance.isMarketClosed()); // returns true for forced closed instance
+    }
+
+    @Test
+    public void testNoOrdersCreatedIfMarketClosed() throws Exception {
+        container.setLogic(marketIsForcedClosedInstance); // should return no action and say we can't place orders because the market is closed
+        assertTrue(marketIsForcedClosedInstance.isMarketClosed()); // check market if forced closed
+
+        send(createTick0());
+        send(createTickBUYLow());
+        assertTrue(container.getState().getChildOrders().isEmpty());
+        Action returnAction = logicInstance.evaluate(container.getState());
+        assertEquals(NoAction.class, returnAction.getClass());
+    }
 
 }
-
-// Test your logic is making money by comparing what you have filled - for Back tests
