@@ -1,30 +1,57 @@
 
-# Welcome to Trading Algorithm Assessment
-Coding Black Females x UBS
+# Welcome to Trading Algorithm Assessment (CBF x UBS)
 
 ## Table of Contents
-1. Objective of Project
-2. Progression of Logic
-3. 
+1. [Project Objectives](#project-objectives)
+2. [Progression of Logic](#progression-of-logic)
+   - [Basic Logic: Market Order for 300 Shares](#1-basic-logic-buy-300-shares-at-market-price)
+   - [Second Logic](#2-second-logic)
+   - [Final Logic](#3-final-logic)
+3. [UI Exercise](#ui-considerations)
 
-### The Objective
+## Project Objectives
+### 1. **Basic Objective**
+Write a simple trading algorithm that creates and cancels child orders to meet specified conditions.
+### 2. **Stretch Objective**
+Write an algo that can make money by buying shares when the order book is cheaper, and selling them when the order book is more expensive.
 
-The objective of this challenge is to write a simple trading algo that creates and cancels child orders.
+## Basic Objective 
 
-**Stretch objective:** write an algo that can make money by buying shares when the order book is cheaper, and selling them when the order book is more expensive.
+### Basic Trading Logic 1: Create 3 child orders to fill a parent market order of buying 300 shares 
+
+To achieve the basic objective, the algorithm is designed to fill a parent market order for 300 shares by managing child orders as follows:
+1. **Order Management**: Maintain 3 passive child orders of 100 shares each to cumulatively fill the parent market order of 300 shares.
+2. **Order Creation**: If there are fewer than 3 active child orders, the algorithm will create new orders to maintain this threshold.
+3. **Order Cancellation**: When there are 3 or more active child orders, the oldest active order will be canceled.
+
+4. **No Further Action**: Return No action if:
+   - The total filled quantity reaches 300 shares to prevent over-execution
+   - More than 4 child orders (active + canceled) have been created 
+   - Three child orders have been fully executed 
 
 
-1st Logic
+### Basic Logic 2: Create 3 "Time in force" DAY orders to fill a parent market order of buying 300 shares
+
+To achieve this alternative basic objective, the algorithm is designed to fill a parent market order for 300 shares by managing child orders as before but cancelling the orders if the market closes. 
+
+1. **Order Management**: Maintain 3 passive child orders of 100 shares each to cumulatively fill the parent market order of 300 shares.
+
+2. **Order Creation**: If there are fewer than 3 active child orders, the algorithm will create new orders to maintain this threshold.
+
+3. **Order Cancellation**: Cancel existing orders if the market is closed by using the isMarketClosed() returns true
+
+4. **No Further Action**: Return No action if:
+   * The stock market is closed (Before 8am, after 4.35pm or on weekends)
+   * The total filled quantity reaches 300 shares to prevent over-execution
+   - More than 3 child orders (active + canceled) have been created
+   - Three child orders have been fully executed
 
 
-2nd logic
+---
 
+## Stretch Objective
 
-3rd & final logic:
-
-UI?
-
-## LOGIC BEHIND THE STRETCH OBJECTIVE OUTCOME
+### LOGIC BEHIND THE STRETCH OBJECTIVE OUTCOME
 *  This Algo logic builds on the basic algo logic by
     * --> Adding orders on the BUY side when favours buying low (sellers are placing lower ask offers than historic data) OR when the market favours selling at a higher price (ask price are going back up), place a SELL order that purchases those 300 shares previously bought at a higher price or vice versa to ensure a profit can be made.
 * The Market trend is determined using the Moving Weight Average strategy by:
