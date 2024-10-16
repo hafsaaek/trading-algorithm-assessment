@@ -49,7 +49,11 @@ public class StretchAlgoLogic implements AlgoLogic {
         this.marketStatus = marketStatus;
         this.mwaCalculator = mwaCalculator;
     }
-    
+
+    public boolean isMarketClosed(){
+        return isMarketClosed();
+    }
+
     final int MINIMUM_ORDER_BOOKS = 6; //
     final int MAX_CHILD_ORDERS = 3;
     final long childOrderQuantity = 100;
