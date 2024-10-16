@@ -19,9 +19,12 @@ import org.slf4j.LoggerFactory;
 public class MyAlgoLogic2 implements AlgoLogic {
 
     private static final Logger logger = LoggerFactory.getLogger(MyAlgoLogic2.class);
-    private static final LocalTime MARKET_OPEN_TIME = LocalTime.of(8, 0, 0);
-    private static final LocalTime MARKET_CLOSE_TIME = LocalTime.of(16, 30, 0);
-    private static final ZoneId LONDON_TIME_ZONE = ZoneId.of("Europe/London");
+
+    private final MarketStatus marketStatus;
+
+    public MyAlgoLogic2(MarketStatus marketStatus) {
+        this.marketStatus = marketStatus;
+    }
 
     @Override
     public Action evaluate(SimpleAlgoState state) {
@@ -48,11 +51,12 @@ public class MyAlgoLogic2 implements AlgoLogic {
         List<ChildOrder> filledOrders = new ArrayList<>(); // to store  filled cancelled orders
 
         // 1.1 Find filled active orders & deduce total filled quantity & Cancel non-filled orders if the market is closed
+        boolean marketClosed = marketStatus.isMarketClosed();
         for (ChildOrder activeChildOrder : activeChildOrders) {
             if (activeChildOrder.getFilledQuantity() == childOrderQuantity) { // if my child order of 100 is
                 filledOrders.add(activeChildOrder);
             }  // 1.2 If an active is not filled by the time the market closes - cancel it
-            if (!filledOrders.contains(activeChildOrder) && isMarketClosed() && !activeChildOrders.isEmpty()) {
+            if (!filledOrders.contains(activeChildOrder) && marketClosed && !activeChildOrders.isEmpty()) {
                 logger.info("[STRETCH-ALGO] The market is closed, cancelling orders ");
                 logger.info("[STRETCH-ALGO] Cancelling day order: {}", activeChildOrder);
                 logger.info("[STRETCH-ALGO] Order State: {}", activeChildOrder.getState());
@@ -73,8 +77,8 @@ public class MyAlgoLogic2 implements AlgoLogic {
         }
 
         // 3 Stop if we've reached the max number of child orders (active + cancelled) or the market is closed
-        if (allChildOrders.size() >= maxOrders || isMarketClosed()) {
-            logger.info("[STRETCH-ALGO] Maximum number of child orders created: [{}] Or Market is closed: [{}]", allChildOrders.size(), isMarketClosed());
+        if (allChildOrders.size() >= maxOrders || marketClosed) {
+            logger.info("[STRETCH-ALGO] Maximum number of child orders created: [{}] or market is closed: [{}]", allChildOrders.size(), marketClosed);
             return NoAction;
         }
 
@@ -90,17 +94,6 @@ public class MyAlgoLogic2 implements AlgoLogic {
 
         logger.info("[STRETCH-ALGO] No action to take");
         return NoAction;
-    }
-
-    // Method to see when the order book is closed
-    public boolean isMarketClosed() {
-        ZonedDateTime timeNow = ZonedDateTime.now(LONDON_TIME_ZONE); // Define London time zone & the present time
-        LocalDate today = LocalDate.now(LONDON_TIME_ZONE); // Declare today's date according to London's time zone
-        ZonedDateTime marketCloseDateTime = ZonedDateTime.of(today, MARKET_CLOSE_TIME, LONDON_TIME_ZONE); // Declare market closing conditions
-        ZonedDateTime marketOpenDateTime = ZonedDateTime.of(today, MARKET_OPEN_TIME, LONDON_TIME_ZONE);  // Declare market opening conditions
-
-        // Deduce if the current time is before opening, after closing, or on a weekend - we will ignore holidays for now (could create a list/map of holiday dates using some sort of library)
-        return timeNow.isBefore(marketOpenDateTime) || timeNow.isAfter(marketCloseDateTime) || timeNow.isEqual(marketCloseDateTime) || today.getDayOfWeek() == DayOfWeek.SATURDAY || today.getDayOfWeek() == DayOfWeek.SUNDAY; // Market is closed @ or after 4.30pm
     }
 
 }

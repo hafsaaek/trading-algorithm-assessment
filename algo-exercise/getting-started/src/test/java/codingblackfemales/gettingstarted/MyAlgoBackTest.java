@@ -2,12 +2,10 @@ package codingblackfemales.gettingstarted;
 
 import codingblackfemales.algo.AlgoLogic;
 import codingblackfemales.sotw.ChildOrder;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
-import org.junit.Test;
-
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class MyAlgoBackTest extends AbstractAlgoBackTest {
 
@@ -51,7 +49,7 @@ public class MyAlgoBackTest extends AbstractAlgoBackTest {
 
         // Initial conditions check
         assertEquals(0, filledOrdersCount);
-        assertTrue(filledQuantity == 0);
+        assertEquals(0, filledQuantity);
 
         // Send second tick and verify the logic's reaction when the market moves towards us
         send(createTick2()); // Ensures one order is filled
@@ -128,7 +126,7 @@ public class MyAlgoBackTest extends AbstractAlgoBackTest {
         send(finalMarketTickOverExecution());
         filledQuantity = state.getActiveChildOrders().stream().mapToLong(ChildOrder::getFilledQuantity).sum();
         assertTrue(filledQuantity != 400);
-        assertTrue(filledQuantity == 300);
+        assertEquals(300, filledQuantity);
 
     }
 

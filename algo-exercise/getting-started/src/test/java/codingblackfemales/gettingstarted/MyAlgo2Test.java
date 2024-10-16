@@ -1,64 +1,49 @@
 package codingblackfemales.gettingstarted;
 
 import codingblackfemales.algo.AlgoLogic;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class MyAlgo2Test extends AbstractAlgoTest {
 
+    private MarketStatus marketStatusMock;
+
     @Override
     public AlgoLogic createAlgoLogic() {
-        //this adds your algo logic to the container classes
-        return new MyAlgoLogic2();
-    }
-
-    private MyAlgoLogic2 myAlgoLogic2;
-    private MyAlgoLogic2 myAlgoLogic2ForcedOpen;
-    private MyAlgoLogic2 myAlgoLogic2ForcedClosed;
-
-    @Before
-    public void setUp(){
-        myAlgoLogic2ForcedOpen = new MyAlgoLogic2() {
-            @Override
-            public boolean isMarketClosed(){
-                return false;
-            }
-        };
-
-        myAlgoLogic2ForcedClosed = new MyAlgoLogic2() {
-            @Override
-            public boolean isMarketClosed(){
-                return true;
-            }
-        };
+        marketStatusMock = mock(MarketStatus.class);
+        // this adds your algo logic to the container classes
+        return new MyAlgoLogic2(marketStatusMock);
     }
 
 
     @Test
-    public void testDispatchThroughSequencer() throws Exception {
+    public void testOrdersAreCreatedWhenMarketIsOpenAndCancelledOnMarketClosed() throws Exception {
         // check no orders on the market before sending an update
         assertTrue(container.getState().getChildOrders().isEmpty());
 
-        // simulate the market being open
-        container.setLogic(myAlgoLogic2ForcedOpen);
-        //create a sample market data tick....
+        // Given: market is open
+        when(marketStatusMock.isMarketClosed()).thenReturn(false);
+
+        // When: a tick is received
         send(createTick());
-        //simple assert to check we had 3 orders created, all active
+
+        // Then: 3 orders are created
         assertEquals(3, container.getState().getChildOrders().size());
         assertEquals(3, container.getState().getActiveChildOrders().size());
 
-        send(createTick2());
-        assertEquals(3, container.getState().getChildOrders().size());
+        // Given: market is closed
+        when(marketStatusMock.isMarketClosed()).thenReturn(true);
 
-        // simulate the market closing to check we have cancelled active orders
-        container.setLogic(myAlgoLogic2ForcedClosed);
+        // When: a tick is received
         send(createTick2());
+
+        // Then: all orders are cancelled
         assertEquals(3, container.getState().getChildOrders().size());
         assertTrue(container.getState().getActiveChildOrders().isEmpty());
-
     }
+
 }

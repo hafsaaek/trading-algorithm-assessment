@@ -27,9 +27,9 @@ public class MyAlgoLogic implements AlgoLogic {
 
         var orderBookAsString = Util.orderBookToString(state);
 
-        logger.info("[MY-ALGO] The state of the order book is:\n" + orderBookAsString);
+        logger.info("[MY-ALGO] The state of the order book is:\n{}", orderBookAsString);
 
-        /********
+        /*
         * Trading Algorithm Logic:
             * 1. Maintain 3 active child orders on the market, each for 100 shares, to fill a parent order of 300 shares (Market Order).
             * 2. Create new child orders if active orders are less than 3.
@@ -78,7 +78,7 @@ public class MyAlgoLogic implements AlgoLogic {
 
         // 2. Ensure 3 active orders are on the market if none have been filled
         int activeNonFilledOrders = activeChildOrders.size() - filledOrders.size();
-        if (filledOrders.size() < maxOrdersOnMarket && activeChildOrders.size() < maxOrdersOnMarket && totalFilledQuantity < parentOrderQuantity) {
+        if (filledOrders.size() < maxOrdersOnMarket && activeChildOrders.size() < maxOrdersOnMarket) {
             logger.info("[MY-ALGO] Creating new child order to maintain 3 active orders, want 3, have: {}", activeNonFilledOrders);
             long price = bestBid.price;
             return new CreateChildOrder(Side.BUY, childOrderQuantity, price);

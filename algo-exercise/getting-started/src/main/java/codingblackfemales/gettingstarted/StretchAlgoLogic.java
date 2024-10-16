@@ -36,23 +36,18 @@ import java.util.ArrayList;
  *  */
 
 public class StretchAlgoLogic implements AlgoLogic {
-    private List<Double> bidAverages = new ArrayList<>();
-    private List<Double> askAverages = new ArrayList<>();
+    private final List<Double> bidAverages = new ArrayList<>();
+    private final List<Double> askAverages = new ArrayList<>();
 
     private static final Logger logger = LoggerFactory.getLogger(StretchAlgoLogic.class);
-    private  MarketStatus marketStatus;
-    private MovingWeightAverageCalculator mwaCalculator ;
-    private  OrderBookService orderBookService;
+    private final MarketStatus marketStatus;
+    private final MovingWeightAverageCalculator mwaCalculator ;
+    private final OrderBookService orderBookService;
 
     public StretchAlgoLogic(MarketStatus marketStatus, OrderBookService orderBookService, MovingWeightAverageCalculator mwaCalculator) {
         this.orderBookService = orderBookService;
         this.marketStatus = marketStatus;
         this.mwaCalculator = mwaCalculator;
-    }
-
-    /* Return this method to allow us to invoke it in test classes - to ask mentor if there's a better way to do this */
-    public boolean isMarketClosed() {
-        return marketStatus.isMarketClosed();
     }
 
     final int MINIMUM_ORDER_BOOKS = 6; //

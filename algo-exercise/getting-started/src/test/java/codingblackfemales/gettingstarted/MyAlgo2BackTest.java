@@ -17,20 +17,25 @@ import codingblackfemales.service.OrderService;
 import codingblackfemales.sotw.ChildOrder;
 import messages.marketdata.*;
 import org.agrona.concurrent.UnsafeBuffer;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 
 public class MyAlgo2BackTest extends SequencerTestCase {
 
     private final MessageHeaderEncoder headerEncoder = new MessageHeaderEncoder();
+
     private final BookUpdateEncoder encoder = new BookUpdateEncoder();
 
     private AlgoContainer container;
+
+    private MarketStatus marketStatus;
 
     @Override
     public Sequencer getSequencer() {
@@ -47,8 +52,10 @@ public class MyAlgo2BackTest extends SequencerTestCase {
         final OrderBookInboundOrderConsumer orderConsumer = new OrderBookInboundOrderConsumer(book);
 
         container = new AlgoContainer(new MarketDataService(runTrigger), new OrderService(runTrigger), runTrigger, actioner);
-        //set my algo logic
-        container.setLogic(new MyAlgoLogic2());
+
+        // set my algo logic
+        marketStatus = mock(MarketStatus.class);
+        container.setLogic(new MyAlgoLogic2(marketStatus));
 
         network.addConsumer(new LoggingConsumer());
         network.addConsumer(book);
@@ -60,7 +67,7 @@ public class MyAlgo2BackTest extends SequencerTestCase {
         return sequencer;
     }
 
-    private UnsafeBuffer createSampleMarketDataTick(){
+    private UnsafeBuffer createSampleMarketDataTick() {
         final ByteBuffer byteBuffer = ByteBuffer.allocateDirect(1024);
         final UnsafeBuffer directBuffer = new UnsafeBuffer(byteBuffer);
 
@@ -88,7 +95,7 @@ public class MyAlgo2BackTest extends SequencerTestCase {
         return directBuffer;
     }
 
-    private UnsafeBuffer createSampleMarketDataTick2(){
+    private UnsafeBuffer createSampleMarketDataTick2() {
         final ByteBuffer byteBuffer = ByteBuffer.allocateDirect(1024);
         final UnsafeBuffer directBuffer = new UnsafeBuffer(byteBuffer);
 
@@ -116,7 +123,7 @@ public class MyAlgo2BackTest extends SequencerTestCase {
         return directBuffer;
     }
 
-    private UnsafeBuffer createSampleMarketDataTick3(){
+    private UnsafeBuffer createSampleMarketDataTick3() {
         final ByteBuffer byteBuffer = ByteBuffer.allocateDirect(1024);
         final UnsafeBuffer directBuffer = new UnsafeBuffer(byteBuffer);
 
@@ -144,54 +151,13 @@ public class MyAlgo2BackTest extends SequencerTestCase {
         return directBuffer;
     }
 
-    MyAlgoLogic2 algoInstance = new MyAlgoLogic2();
-
-    @Test // This tests according to real time when the stock exchange is open/closed
-    public void testOrderOnMarketWhenMarketIsOpen() throws Exception {
-        MyAlgoLogic2 stretchInstance = new MyAlgoLogic2(){
-            @Override
-            public boolean isMarketClosed() {
-                return true;
-            }
-        };
-
-        container.setLogic(stretchInstance);
-
-        //create a sample market data tick....
-        send(createSampleMarketDataTick());
-
-        if (!stretchInstance.isMarketClosed()) { // if market is open --> 3 orders should be on the market
-            assertEquals(container.getState().getChildOrders().size(), 3);  //simple assert to check we had 3 orders created if market is open
-            assertEquals(container.getState().getActiveChildOrders().size(), 3);  // assert to check we had 3 active orders on the market is open when the market is not in our favour and the stock exchange is open
-        } else{ // if market is closed --> no orders should be on the market
-            assertEquals(container.getState().getChildOrders().size(), 0);
-        }
-
-        //when: market data moves towards us
-        send(createSampleMarketDataTick2());
-
-        if (!stretchInstance.isMarketClosed()) { // if market is open --> orders should be filled
-            long filledQuantity = container.getState().getChildOrders().stream().map(ChildOrder::getFilledQuantity).reduce(Long::sum).get();
-            assertEquals(300, filledQuantity); // assert our orders have been filled if market is still open when second tick is sent
-        } else {
-            assertTrue(container.getState().getActiveChildOrders().isEmpty()); // assert that active orders have been cancelled if market closes after sending second tick
-        }
-    }
-
     @Test
-    public void testOrdersAreNotCancelledWhenMarketIsForcedOpen() throws Exception {
-        // force market to be open by using an instance of the algo class and override the
-        MyAlgoLogic2 stretchInstanceForceMarketOpen = new MyAlgoLogic2() {
-            @Override
-            public boolean isMarketClosed() {
-                return false;
-            }
-        };
-
-        container.setLogic(stretchInstanceForceMarketOpen);
+    public void testOrderOnMarketWhenMarketIsOpen() throws Exception {
+        when(marketStatus.isMarketClosed()).thenReturn(false);
 
         // Simulate market data
         send(createSampleMarketDataTick());
+
         //simple assert to check we had 3 orders created
         assertEquals(container.getState().getChildOrders().size(), 3);
 
@@ -205,27 +171,27 @@ public class MyAlgo2BackTest extends SequencerTestCase {
         //and: check that our algo state was updated to reflect our fills when the market data
         assertEquals(parentOrder, filledQuantity);
         // assert to ensure that when the market is not closed - orders have not been cancelled - filled orders must remain active
-        assertEquals(state.getActiveChildOrders().size(), 3);
+        assertEquals(3, state.getActiveChildOrders().size());
     }
 
     @Test
-    public void testCancellingOrdersAfterMarketCloses() throws Exception{
-        //create a sample market data tick....
+    public void testCancellingOrdersAfterMarketCloses() throws Exception {
+        when(marketStatus.isMarketClosed()).thenReturn(false);
+
+        // Simulate market data
         send(createSampleMarketDataTick());
+
+        //simple assert to check we had 3 orders created
+        assertEquals(container.getState().getChildOrders().size(), 3);
+
+        // close market
+        when(marketStatus.isMarketClosed()).thenReturn(true);
 
         //when: market data is not in our favour
         send(createSampleMarketDataTick3());
 
-        if(algoInstance.isMarketClosed()){
-            // assert tha the orders have been cancelled as local time is past 4.30pm - Day order decision fu-filled
-            assertEquals(container.getState().getActiveChildOrders().size(), 0);
-        } else{
-            // assert tha the orders have been not been cancelled if market is open
-            assertEquals(container.getState().getActiveChildOrders().size(), 3);
-            send(createSampleMarketDataTick());
-            assertEquals(container.getState().getChildOrders().size(), 3);
-
-        }
+        // assert tha the orders have been cancelled as local time is past 4.30pm - Day order decision fu-filled
+        assertEquals(0, container.getState().getActiveChildOrders().size());
     }
 
     // Tests: check max orders are created, if one order is filled, 3 are cancelled when market closes, if 2 are filled, 1 is cancelled, if 3 filled, none are cancelled
