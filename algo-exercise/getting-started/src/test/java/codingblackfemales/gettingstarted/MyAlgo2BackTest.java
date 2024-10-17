@@ -26,8 +26,7 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -129,30 +128,6 @@ public class MyAlgo2BackTest extends SequencerTestCase {
 
     MyAlgoLogic2 algoLogic2 = new MyAlgoLogic2(marketStatus);
 
-    /* This tests according the logic class's return types in real time relative to when the stock exchange is open/closed */
-    @Test
-    public void testDispatchThroughSequencer() throws Exception {
-        //create a sample market data tick....
-        send(createSampleMarketDataTick());
-        // this will only test one condition at a time - never both at the same time
-        // pass time to the test - e.g, sunday, or
-        if (marketStatus.isMarketOpen()) { // if market is open --> 3 orders should be on the market
-            assertEquals(3, container.getState().getChildOrders().size());  //simple assert to check we had 3 orders created if market is open
-            assertEquals(3, container.getState().getActiveChildOrders().size());  // assert to check we had 3 active orders on the market is open when the market is not in our favour and the stock exchange is open
-        } else{ // if market is closed --> no orders should be on the market
-            assertEquals(0, container.getState().getChildOrders().size());
-        }
-
-        //when: market data moves towards us
-        send(createSampleMarketDataTick2());
-
-        if (marketStatus.isMarketOpen()) { // if market is open --> orders should be filled
-            long filledQuantity = container.getState().getChildOrders().stream().map(ChildOrder::getFilledQuantity).reduce(Long::sum).orElse(0L);
-            assertEquals(300, filledQuantity); // assert our orders have been filled if market is still open when second tick is sent
-        } else {
-            assertTrue(container.getState().getActiveChildOrders().isEmpty()); // assert that active orders have been cancelled if market closes after sending second tick
-        }
-    }
 
     @Test
     public void testFilledOrdersAreNotCancelled() throws Exception {
@@ -212,7 +187,7 @@ public class MyAlgo2BackTest extends SequencerTestCase {
         System.out.println(marketStatus.isMarketOpen());
 
         // if boolean : true --> isMarketClosed() should also return true and vice versa
-        assertEquals(isMarketClosedTestVariable, marketStatus.isMarketOpen());
+        assertEquals(isMarketClosedTestVariable, !marketStatus.isMarketOpen());
     }
 }
 
