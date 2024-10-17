@@ -134,7 +134,8 @@ public class MyAlgo2BackTest extends SequencerTestCase {
     public void testDispatchThroughSequencer() throws Exception {
         //create a sample market data tick....
         send(createSampleMarketDataTick());
-
+        // this will only test one condition at a time - never both at the same time
+        // pass time to the test - e.g, sunday, or
         if (marketStatus.isMarketOpen()) { // if market is open --> 3 orders should be on the market
             assertEquals(3, container.getState().getChildOrders().size());  //simple assert to check we had 3 orders created if market is open
             assertEquals(3, container.getState().getActiveChildOrders().size());  // assert to check we had 3 active orders on the market is open when the market is not in our favour and the stock exchange is open

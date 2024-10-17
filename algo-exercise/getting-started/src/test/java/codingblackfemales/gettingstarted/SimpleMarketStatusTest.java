@@ -9,9 +9,9 @@ import java.time.ZonedDateTime;
 
 import static org.junit.Assert.assertEquals;
 
-public class MarketStatusTest {
+public class SimpleMarketStatusTest {
 
-    MarketStatus marketStatus = new MarketStatus();
+    private SimpleMarketStatus marketStatus = new SimpleMarketStatus();
     @Test
     public void testIsMarketOpenMethod() {
         // Check the function returns true when the market is open in real time and false when it's closed in real time LONDON time zone
@@ -27,4 +27,7 @@ public class MarketStatusTest {
         // if boolean : true --> isMarketClosed() should also return true and vice versa
         assertEquals(isMarketClosedTestVariable, !marketStatus.isMarketOpen());
     }
+
+    // 6 test cases: one a sunday, saturday, before 8am, after 4.35pm
+    // stretch market status logic: is the market open at this time (current  version) instead of is the market open now?
 }
