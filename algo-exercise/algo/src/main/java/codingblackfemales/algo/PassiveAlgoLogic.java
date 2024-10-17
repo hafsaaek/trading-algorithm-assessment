@@ -11,14 +11,13 @@ import org.slf4j.LoggerFactory;
 
 import static codingblackfemales.action.NoAction.NoAction;
 
-public class PassiveAlgoLogic implements AlgoLogic{ // wait for the market (an order) to come to your price - wait till the best offer
+public class PassiveAlgoLogic implements AlgoLogic{
 
     private static final Logger logger = LoggerFactory.getLogger(PassiveAlgoLogic.class);
 
     @Override
     public Action evaluate(SimpleAlgoState state) {
 
-        
         logger.info("[PASSIVEALGO] In Algo Logic....");
 
         final String book = Util.orderBookToString(state);
@@ -28,11 +27,11 @@ public class PassiveAlgoLogic implements AlgoLogic{ // wait for the market (an o
         final BidLevel nearTouch = state.getBidAt(0);
 
         long quantity = 75;
-        long price = nearTouch.price; 
+        long price = nearTouch.price - 1L;
 
-
+        //until we have three child orders....
         if(state.getChildOrders().size() < 3){
-
+            //then keep creating a new one
             logger.info("[PASSIVEALGO] Have:" + state.getChildOrders().size() + " children, want 3, joining passive side of book with: " + quantity + " @ " + price);
             return new CreateChildOrder(Side.BUY, quantity, price);
         }else{
