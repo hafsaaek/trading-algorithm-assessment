@@ -50,8 +50,8 @@ public class StretchAlgoLogic implements AlgoLogic {
         this.mwaCalculator = mwaCalculator;
     }
 
-    public boolean isMarketClosed(){
-        return isMarketClosed();
+    public boolean isMarketOpen(){
+        return marketStatus.isMarketOpen();
     }
 
     final int MINIMUM_ORDER_BOOKS = 6; //
@@ -72,16 +72,14 @@ public class StretchAlgoLogic implements AlgoLogic {
         List<ChildOrder> activeChildOrders = state.getActiveChildOrders(); // list of all child orders (active and non-active)
 
         /* Exit Condition 1: If Market is closed before logic is triggered - don't return any action */
-        if(marketStatus.isMarketClosed() && allChildOrders.isEmpty()) {
+        if(!marketStatus.isMarketOpen() && allChildOrders.isEmpty()) {
             logger.info("[STRETCH-ALGO] No orders on the market & Market is CLOSED, Not placing new orders ");
             return NoAction.NoAction;
-        } else{
-            logger.info("[STRETCH-ALGO] The market is OPEN, continuing with logic");
         }
 
-        /* Exit Condition 2: If Market is closed after logic has been triggered - cancel all non-filled orders on the market */
+        /* Exit Condition 2: If orders are not filled by end of day --> CANCEL them */
         List<ChildOrder> ordersToCancel = activeChildOrders.stream().filter(childOrder -> childOrder.getFilledQuantity() == 0).toList();
-        if (marketStatus.isMarketClosed() && !ordersToCancel.isEmpty()){
+        if (!marketStatus.isMarketOpen() && !ordersToCancel.isEmpty()){
             for (ChildOrder orderToCancel: ordersToCancel){
                 logger.info("[STRETCH-ALGO] The market is closed. Cancelling day order ID: {} on side: {}", orderToCancel.getOrderId(), orderToCancel.getSide());
                 return new CancelChildOrder(orderToCancel);
@@ -142,7 +140,10 @@ public class StretchAlgoLogic implements AlgoLogic {
                 double differenceInTwoAverages = listOfAverages.get(i + 1) - listOfAverages.get(i);
                 sumOfDifferences += differenceInTwoAverages;
             }
-        } // IS IT WORTH RETURNING SOMETHING ELSE HERE?
+        } else {
+            logger.info("[STRETCH-ALGO] List of averages argument is empty, please include more averages to deduce market trend.");
+            return 0;
+        }
         return sumOfDifferences;
     }
 }

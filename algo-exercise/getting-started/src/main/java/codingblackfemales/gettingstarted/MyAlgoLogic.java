@@ -20,17 +20,17 @@ import org.slf4j.LoggerFactory;
 
 public class MyAlgoLogic implements AlgoLogic {
 
-    /** Basic Trading Algorithm Logic:
+    /*** Basic Trading Algorithm Logic:
      * 1. Maintain 3 passive child orders on the market, each 100 shares, to fill a parent market order of 300 shares .
      * 2. Create new child orders if there are less than 3 orders on the market.
      * 3. Cancel the oldest active order when there are 3 or more active orders.
      * 4. Return NO Action if:
-     *    - Total filled quantity reaches 300 shares.
-     *    - More than 4 child orders (active + canceled) have been created.
-     *    - 3 (fully executed) child orders have fully filled.
+         * - Total filled quantity reaches 300 shares.
+         * - More than 4 child orders (active + canceled) have been created.
+         * - 3 (fully executed) child orders have fully filled.
      * 5. Over-Execution has been accounted for because we are ensuring:
-     *    - Total filled quantity of all Orders does not exceed the parent order quantity
-     *    - If 3 orders are fully filled, no more orders are created */
+         * - Total filled quantity of all Orders does not exceed the parent order quantity
+         * - If 3 orders are fully filled, no more orders are created */
 
     private static final Logger logger = LoggerFactory.getLogger(MyAlgoLogic.class);
 
@@ -66,7 +66,6 @@ public class MyAlgoLogic implements AlgoLogic {
                 .mapToLong(ChildOrder::getFilledQuantity)
                 .sum(); // sum of quantities of all filled orders
         logger.info("[MY-ALGO] Total Filled Quantity for orders: {}", totalFilledQuantity);
-
 
         /* 1.2 Stop if total filled quantity meets the parent order quantity or max orders have been created */
         if (totalFilledQuantity >= parentOrderQuantity|| allChildOrders.size() >= maxOrders) {

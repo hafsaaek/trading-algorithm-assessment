@@ -1,5 +1,7 @@
 package codingblackfemales.gettingstarted;
 
+import codingblackfemales.action.Action;
+import codingblackfemales.action.NoAction;
 import codingblackfemales.algo.AlgoLogic;
 import codingblackfemales.sotw.ChildOrder;
 
@@ -15,6 +17,8 @@ public class MyAlgoBackTest extends AbstractAlgoBackTest {
     public AlgoLogic createAlgoLogic() {
         return new MyAlgoLogic();
     }
+
+    MyAlgoLogic algoLogic = new MyAlgoLogic();
 
     @Test
     public void testExampleBackTest() throws Exception {
@@ -129,6 +133,10 @@ public class MyAlgoBackTest extends AbstractAlgoBackTest {
         filledQuantity = state.getActiveChildOrders().stream().mapToLong(ChildOrder::getFilledQuantity).sum();
         assertTrue(filledQuantity != 400);
         assertEquals(300, filledQuantity);
+
+        send(createTick());
+        Action returnAction = algoLogic.evaluate(container.getState());
+        assertEquals(NoAction.class, returnAction.getClass());
 
     }
 
