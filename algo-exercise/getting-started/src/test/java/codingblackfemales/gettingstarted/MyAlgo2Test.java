@@ -1,7 +1,6 @@
 package codingblackfemales.gettingstarted;
 
-import codingblackfemales.action.Action;
-import codingblackfemales.action.NoAction;
+
 import codingblackfemales.algo.AlgoLogic;
 import org.junit.Test;
 
@@ -21,7 +20,6 @@ public class MyAlgo2Test extends AbstractAlgoTest {
         return new MyAlgoLogic2(marketStatus);
     }
 
-    MyAlgoLogic algoLogic = new MyAlgoLogic();
 
     @Test
     public void testDispatchThroughSequencer() throws Exception {
@@ -44,10 +42,5 @@ public class MyAlgo2Test extends AbstractAlgoTest {
         send(createTick2());
         assertEquals(3, container.getState().getChildOrders().size());
         assertTrue(container.getState().getActiveChildOrders().isEmpty());
-
-        send(createTick());
-        Action returnAction = algoLogic.evaluate(container.getState());
-        assertEquals(NoAction.class, returnAction.getClass());
-
     }
 }

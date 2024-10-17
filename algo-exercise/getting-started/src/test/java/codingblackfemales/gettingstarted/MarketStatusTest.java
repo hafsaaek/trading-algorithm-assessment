@@ -1,6 +1,5 @@
 package codingblackfemales.gettingstarted;
 
-import org.junit.Assert;
 import org.junit.jupiter.api.Test;
 
 import java.time.DayOfWeek;

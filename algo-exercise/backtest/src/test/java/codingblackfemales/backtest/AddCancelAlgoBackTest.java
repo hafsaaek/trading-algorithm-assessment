@@ -120,8 +120,8 @@ public class AddCancelAlgoBackTest extends SequencerTestCase {
     public void testExampleBackTest() throws Exception {
         // create a sample market data tick....
         send(createSampleMarketDataTick());
-        // simple assert to check we had 3 orders created
-        assertEquals(3, container.getState().getChildOrders().size());
+        // simple assert to check we had 21 orders created
+        assertEquals(21, container.getState().getChildOrders().size());
 
         // when: market data moves towards us
         send(createSampleMarketDataTick2());

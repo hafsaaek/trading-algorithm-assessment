@@ -21,6 +21,11 @@ import messages.marketdata.*;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.Test;
 import java.nio.ByteBuffer;
+import java.time.DayOfWeek;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -121,33 +126,6 @@ public class MyAlgo2BackTest extends SequencerTestCase {
         return directBuffer;
     }
 
-    private UnsafeBuffer createSampleMarketDataTick3(){
-        final ByteBuffer byteBuffer = ByteBuffer.allocateDirect(1024);
-        final UnsafeBuffer directBuffer = new UnsafeBuffer(byteBuffer);
-
-        //write the encoded output to the direct buffer
-        encoder.wrapAndApplyHeader(directBuffer, 0, headerEncoder);
-
-        //set the fields to desired values
-        encoder.venue(Venue.XLON);
-        encoder.instrumentId(123L);
-        encoder.source(Source.STREAM);
-
-        encoder.bidBookCount(3)
-                .next().price(95L).size(100L)
-                .next().price(93L).size(200L)
-                .next().price(91L).size(300L);
-
-        encoder.askBookCount(4)
-                .next().price(100L).size(501L)
-                .next().price(101L).size(200L)
-                .next().price(110L).size(5000L)
-                .next().price(119L).size(5600L);
-
-        encoder.instrumentStatus(InstrumentStatus.CONTINUOUS);
-
-        return directBuffer;
-    }
 
     MyAlgoLogic2 algoLogic2 = new MyAlgoLogic2(marketStatus);
 
@@ -218,6 +196,22 @@ public class MyAlgo2BackTest extends SequencerTestCase {
         Action returnAction = algoLogic2.evaluate(container.getState());
         assertEquals(NoAction.class, returnAction.getClass());
 
+    }
+
+    @Test
+    public void testIsMarketOpenMethod() {
+        // Check the function returns true when the market is open in real time and false when it's closed in real time LONDON time zone
+        ZonedDateTime timeNow = ZonedDateTime.now(ZoneId.of("Europe/London"));  // Declare market opening conditions
+        LocalTime marketOpenTime = LocalTime.of(8, 0, 0);
+        LocalTime marketCloseTime = LocalTime.of(16, 35, 0);
+
+        // declare a boolean that will hold true for all market closed conditions (except holidays)
+        boolean isMarketClosedTestVariable = timeNow.toLocalTime().isBefore(marketOpenTime) || timeNow.toLocalTime().isAfter(marketCloseTime) || timeNow.toLocalDate().getDayOfWeek() == DayOfWeek.SATURDAY || timeNow.toLocalDate().getDayOfWeek() == DayOfWeek.SUNDAY;
+        System.out.println(isMarketClosedTestVariable);
+        System.out.println(marketStatus.isMarketOpen());
+
+        // if boolean : true --> isMarketClosed() should also return true and vice versa
+        assertEquals(isMarketClosedTestVariable, marketStatus.isMarketOpen());
     }
 }
 
