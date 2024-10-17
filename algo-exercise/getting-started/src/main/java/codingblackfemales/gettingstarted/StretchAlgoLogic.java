@@ -36,13 +36,13 @@ import java.util.ArrayList;
  *  */
 
 public class StretchAlgoLogic implements AlgoLogic {
-    private List<Double> bidAverages = new ArrayList<>();
-    private List<Double> askAverages = new ArrayList<>();
+    private final List<Double> bidAverages = new ArrayList<>();
+    private final List<Double> askAverages = new ArrayList<>();
 
     private static final Logger logger = LoggerFactory.getLogger(StretchAlgoLogic.class);
-    private  MarketStatus marketStatus;
-    private MovingWeightAverageCalculator mwaCalculator ;
-    private  OrderBookService orderBookService;
+    private final MarketStatus marketStatus;
+    private final MovingWeightAverageCalculator mwaCalculator ;
+    private final OrderBookService orderBookService;
 
     public StretchAlgoLogic(MarketStatus marketStatus, OrderBookService orderBookService, MovingWeightAverageCalculator mwaCalculator) {
         this.orderBookService = orderBookService;
@@ -50,9 +50,8 @@ public class StretchAlgoLogic implements AlgoLogic {
         this.mwaCalculator = mwaCalculator;
     }
 
-    /* Return this method to allow us to invoke it in test classes - to ask mentor if there's a better way to do this */
-    public boolean isMarketClosed() {
-        return marketStatus.isMarketClosed();
+    public boolean isMarketOpen(){
+        return marketStatus.isMarketOpen();
     }
 
     final int MINIMUM_ORDER_BOOKS = 6; //
@@ -73,16 +72,14 @@ public class StretchAlgoLogic implements AlgoLogic {
         List<ChildOrder> activeChildOrders = state.getActiveChildOrders(); // list of all child orders (active and non-active)
 
         /* Exit Condition 1: If Market is closed before logic is triggered - don't return any action */
-        if(marketStatus.isMarketClosed() && allChildOrders.isEmpty()) {
+        if(!marketStatus.isMarketOpen() && allChildOrders.isEmpty()) {
             logger.info("[STRETCH-ALGO] No orders on the market & Market is CLOSED, Not placing new orders ");
             return NoAction.NoAction;
-        } else{
-            logger.info("[STRETCH-ALGO] The market is OPEN, continuing with logic");
         }
 
-        /* Exit Condition 2: If Market is closed after logic has been triggered - cancel all non-filled orders on the market */
+        /* Exit Condition 2: If orders are not filled by end of day --> CANCEL them */
         List<ChildOrder> ordersToCancel = activeChildOrders.stream().filter(childOrder -> childOrder.getFilledQuantity() == 0).toList();
-        if (marketStatus.isMarketClosed() && !ordersToCancel.isEmpty()){
+        if (!marketStatus.isMarketOpen() && !ordersToCancel.isEmpty()){
             for (ChildOrder orderToCancel: ordersToCancel){
                 logger.info("[STRETCH-ALGO] The market is closed. Cancelling day order ID: {} on side: {}", orderToCancel.getOrderId(), orderToCancel.getSide());
                 return new CancelChildOrder(orderToCancel);
@@ -103,7 +100,7 @@ public class StretchAlgoLogic implements AlgoLogic {
 
         /* Exit Condition 4: Return No action if we do not have sufficient data to calculate the overall trend of the  */
         if (bidAverages.size() < MINIMUM_ORDER_BOOKS || askAverages.size() < MINIMUM_ORDER_BOOKS) {
-            logger.info("[STRETCH-ALGO] Insufficient Moving weight averages to evaluate the market trend, there are currently {} bids averages and {} asks averages", bidAverages.stream().count(), askAverages.size());
+            logger.info("[STRETCH-ALGO] Insufficient Moving weight averages to evaluate the market trend, there are currently {} bids averages and {} asks averages", bidAverages.size(), askAverages.size());
             return NoAction.NoAction;
         }
 
@@ -143,7 +140,10 @@ public class StretchAlgoLogic implements AlgoLogic {
                 double differenceInTwoAverages = listOfAverages.get(i + 1) - listOfAverages.get(i);
                 sumOfDifferences += differenceInTwoAverages;
             }
-        } // IS IT WORTH RETURNING SOMETHING ELSE HERE?
+        } else {
+            logger.info("[STRETCH-ALGO] List of averages argument is empty, please include more averages to deduce market trend.");
+            return 0;
+        }
         return sumOfDifferences;
     }
 }
