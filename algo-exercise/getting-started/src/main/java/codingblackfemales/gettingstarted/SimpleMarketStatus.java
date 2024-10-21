@@ -2,6 +2,12 @@ package codingblackfemales.gettingstarted;
 
 import java.time.*;
 
+/*** in exit method:
+ * MarketStatus marketStatus = new SimpleMarketStatus();
+ * StretchAlgoLogic stretchAlgoLogic = new StretchAlgoLogic(marketStatus, new OrderBookService(), new MovingWeightAverageCalculator())
+ * stretchAlgoLogic.evaluate() // run the algo
+ */
+
 public class SimpleMarketStatus implements MarketStatus {
     private static final LocalTime MARKET_OPEN_TIME = LocalTime.of(8, 0, 0);
     private static final LocalTime MARKET_CLOSE_TIME = LocalTime.of(16, 35, 0); // market close time is after close market auction window to allow our algo to secure a good ask/bid price
@@ -17,9 +23,5 @@ public class SimpleMarketStatus implements MarketStatus {
         // Deduce if the current time is before opening, after closing, or on a weekend - we will ignore holidays for now
         return today.getDayOfWeek() != DayOfWeek.SATURDAY && today.getDayOfWeek() != DayOfWeek.SUNDAY && timeNow.isAfter(marketOpenDateTime) && timeNow.isBefore(marketCloseDateTime); // Market is open at 8am and closed before 8am & after 4.35pm & on weekend
     }
-/*** in exit method:
-     * MarketStatus marketStatus = new SimpleMarketStatus();
-     * StretchAlgoLogic stretchAlgoLogic = new StretchAlgoLogic(marketStatus, new OrderBookService(), new MovingWeightAverageCalculator())
-     * stretchAlgoLogic.evaluate() // run the algo
-*/
+
 }

@@ -51,9 +51,8 @@ public class MyAlgoLogic implements AlgoLogic {
         List<ChildOrder> activeChildOrders = state.getActiveChildOrders(); // active child orders only (non cancelled ones)
         List<ChildOrder> filledOrders = new ArrayList<>(); // to store  filled orders
 
-        /*
-         1. Prioritise retuning NO action to ensure the program checks when to stop before doing anything else
-         1.1 Find filled active orders & deduce total filled quantity
+        /* 1. Prioritise retuning NO action to ensure the program checks when to stop before doing anything else
+            1.1 Find filled active orders & deduce total filled quantity
         */
         for (ChildOrder activeChildOrder : activeChildOrders) {
             if (activeChildOrder.getFilledQuantity() == childOrderQuantity) {
