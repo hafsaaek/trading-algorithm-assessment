@@ -4,12 +4,8 @@ import codingblackfemales.action.Action;
 import codingblackfemales.action.NoAction;
 import codingblackfemales.algo.AlgoLogic;
 import codingblackfemales.sotw.ChildOrder;
-import org.junit.Assert;
 import org.junit.jupiter.api.Test;
-import java.time.DayOfWeek;
-import java.time.LocalTime;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -61,14 +57,14 @@ public class StretchAlgoBackTest extends AbstractAlgoBackTest {
         assertEquals(3, container.getState().getChildOrders().size());
         assertEquals(3, container.getState().getActiveChildOrders().size());
 
-        /* 3. Check orders are filled when the right opportunity presents itself */
+        /* 4. Check orders are filled when the right opportunity presents itself */
         send(createTickFillBUYOrders());
         //Check things like filled quantity, cancelled order count etc....
         long filledQuantity = container.getState().getChildOrders().stream().map(ChildOrder::getFilledQuantity).reduce(Long::sum).orElse(0L);
         //and: check that our algo state was updated to reflect our fills when the market data
         assertEquals(300, filledQuantity);
 
-        // 4. test these ALL ACTIVE orders are cancelled if the market closes
+        // 5. test these ALL ACTIVE orders are cancelled if the market closes
         when(marketStatus.isMarketOpen()).thenReturn(false);
         assertFalse(logicInstance.isMarketOpen()); // check market is closed
         send(createTickBUYLow());
@@ -114,7 +110,7 @@ public class StretchAlgoBackTest extends AbstractAlgoBackTest {
         //and: check that our algo state was updated to reflect our fills when the market data
         assertEquals(0, filledQuantity); // not filling SELL orders now to test cancellation of orders on the market
 
-        // 4. test these ALL ACTIVE orders are cancelled if the market closes as they have not been filled by end of day
+        // 5. test these ALL ACTIVE orders are cancelled if the market closes as they have not been filled by end of day
         when(marketStatus.isMarketOpen()).thenReturn(false);
         assertFalse(logicInstance.isMarketOpen()); // check market is closed
         send(createTickSELLHigh());
@@ -124,25 +120,9 @@ public class StretchAlgoBackTest extends AbstractAlgoBackTest {
 
 
         // 6. Profit made after BUYING at 96 as per testBUYCondition, the profit is:
-        System.out.println("Profit made is: " + (expectedAskPrice - 96));
+        System.out.println("Profit made is: " + (expectedAskPrice - 94));
     }
 
-    // Check isMarketOpen method behaves as expected
-    @Test
-    public void testIsMarketOpenMethod() {
-        // Check the function returns true when the market is open in real time and false when it's closed in real time LONDON time zone
-        ZonedDateTime timeNow = ZonedDateTime.now(ZoneId.of("Europe/London"));  // Declare market opening conditions
-        LocalTime marketOpenTime = LocalTime.of(8, 0, 0);
-        LocalTime marketCloseTime = LocalTime.of(16, 35, 0);
-
-        // declare a boolean that will hold true for all market closed conditions (except holidays)
-        boolean isMarketClosedTestVariable = timeNow.toLocalTime().isBefore(marketOpenTime) || timeNow.toLocalTime().isAfter(marketCloseTime) || timeNow.toLocalDate().getDayOfWeek() == DayOfWeek.SATURDAY || timeNow.toLocalDate().getDayOfWeek() == DayOfWeek.SUNDAY;
-        System.out.println(isMarketClosedTestVariable);
-        System.out.println(logicInstance.isMarketOpen());
-
-        // if boolean : true --> isMarketClosed() should also return true and vice versa
-        Assert.assertEquals(isMarketClosedTestVariable, logicInstance.isMarketOpen());
-    }
 
     @Test
     public void testTrendEvaluatorMethod(){

@@ -288,5 +288,4 @@ public  class StretchAlgoTest extends SequencerTestCase {
         assertEquals(NoAction.class, returnAction.getClass());
     }
 
-
 }

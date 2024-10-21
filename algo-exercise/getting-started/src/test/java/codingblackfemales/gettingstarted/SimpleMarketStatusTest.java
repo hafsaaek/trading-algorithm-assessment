@@ -30,4 +30,5 @@ public class SimpleMarketStatusTest {
 
     // 6 test cases: one a sunday, saturday, before 8am, after 4.35pm
     // stretch market status logic: is the market open at this time (current  version) instead of is the market open now?
+
 }
