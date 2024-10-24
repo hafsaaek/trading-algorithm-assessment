@@ -20,7 +20,6 @@ public class SimpleMarketStatus implements MarketStatus {
         ZonedDateTime marketOpenDateTime = ZonedDateTime.of(today, MARKET_OPEN_TIME, LONDON_TIME_ZONE);  // Declare market opening conditions
         ZonedDateTime marketCloseDateTime = ZonedDateTime.of(today, MARKET_CLOSE_TIME, LONDON_TIME_ZONE); // Declare market closing conditions
 
-        // Deduce if the current time is before opening, after closing, or on a weekend - we will ignore holidays for now
         return today.getDayOfWeek() != DayOfWeek.SATURDAY && today.getDayOfWeek() != DayOfWeek.SUNDAY && timeNow.isAfter(marketOpenDateTime) && timeNow.isBefore(marketCloseDateTime); // Market is open at 8am and closed before 8am & after 4.35pm & on weekend
     }
 
