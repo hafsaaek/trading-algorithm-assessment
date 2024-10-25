@@ -18,21 +18,21 @@ import java.util.ArrayList;
 
 /** LOGIC BEHIND THE STRETCH OBJECTIVE OUTCOME
  *  This Algo logic builds on the basic algo logic by
-    * --> Adding orders on the BUY side when favours buying low (sellers are placing lower ask offers than historic data) OR when the market favours selling at a higher price (ask price are going back up), place a SELL order that purchases those 300 shares previously bought at a higher price or vice versa to ensure a profit can be made.
- * The Market trend is determined using the Moving Weight Average strategy by:
+    * --> Adding orders on the BUY side when favours buying low (sellers are placing lower ask offers than historic data) OR when the market favours selling at a higher price (ask price are going back up)
+        * Place a SELL order that purchases those 300 shares previously bought at a higher price or vice versa to ensure a profit can be made.
+ * The Market trend is determined using the Moving Weight Average strategy:
      * 1. An average of each instance of the order book is calculated over 6 occurrences to ensure an accurate trend of the market is captured
-     * 2. The sum of those 6 averages are calculated and then added up
+     * 2. The sum of those 6 averages are calculated
      * 3. If the ask side trend demonstrates a strong decline --> BUY to secure a security at a cheaper price
      * 4. If the bid side shows an increasing trend and the ask side shows an increasing trend -->  SELL those previously acquired shares at a higher price
  * Assumptions for this logic:
-     * We are either provided with a market order to BUY 300 shares or SELL 300 shares by sending 3 child orders
-     * If the trend favours BUYING cheap, SELL high for later or vice versa
+     * We are either provided with a market order to BUY 300 shares or SELL 300 shares
      * Orders that are not filled are cancelled by end of Day OR if the market is closed [Public holidays have not been accounted for] - no orders are placed *
  * The logic has been ensured to implement SOLID principles such as Loose coupled code and Single responsibility principle: By separating the functionalities the logic class should not be responsible including:
         * 1. MarketStatus: Determines if the market is OPEN or Closed for cancellation logic
         * 2. OrderBookService: Retrieves bid and ask orders in a list to evaluate market trend for each side
-        * 3. MovingWeightAverageCalculator: Calculates
-        * 4. Stretch Algo Logic: With the injected  MarketStatus, OrderBookService & MovingWeightAverageCalculator dependencies, this class determines which ACTION should be returned e.g.,: Determine the trend using a list of moving weight averages for each side of the OrderBook, Create new orders (BUY/SELL), Cancel orders after market is closed, return no action if market is closed when evaluate method is called or market is stable or full parent order is filled or max number of child orders (3) are created.
+        * 3. MovingWeightAverageCalculator: Calculates the moving weight average of a given list of market orders
+        * 4. Stretch Algo Logic: By injecting the MarketStatus, OrderBookService & MovingWeightAverageCalculator dependencies in the constructor, this class determines which ACTION should be returned e.g.,: Determine the trend using a list of moving weight averages for each side of the OrderBook, Create new orders (BUY/SELL), Cancel orders after market is closed, return no action if market is closed when evaluate method is called or market is stable or full parent order is filled or max number of child orders (3) are created.
  *  */
 
 public class StretchAlgoLogic implements AlgoLogic {
@@ -115,7 +115,7 @@ public class StretchAlgoLogic implements AlgoLogic {
             logger.info("[STRETCH-ALGO] Trend favorable for BUY, placing child order.");
             final BidLevel bestBid = state.getBidAt(0);
             long price = bestBid.price;
-            logger.info("Best bid: {}", bestBid);
+            logger.info("Best bid: {}", price);
             return new CreateChildOrder(Side.BUY, childOrderQuantity, price);
         } else if (askMarketTrend >  TREND_THRESHOLD && bidMarketTrend > TREND_THRESHOLD) { // sell what you originally bought for more by checking ask side trend
             logger.info("[STRETCH-ALGO] Trend favorable for SELL, placing child order.");
@@ -125,13 +125,15 @@ public class StretchAlgoLogic implements AlgoLogic {
         } else if (Math.abs(bidMarketTrend) <= TREND_THRESHOLD && Math.abs(bidMarketTrend) <= TREND_THRESHOLD) { // if both sides trend shows little to no fluctuation, don't place orders
             logger.info("[STRETCH-ALGO] Market is stable, holding off placing orders for the meantime. Returning No Action.");
             return NoAction.NoAction;
-        } // // profit == bestBid - lowest ask offer
+        } // profit == bestBid - lowest ask offer
 
         logger.info("[STRETCH-ALGO] No action to take.");
         return NoAction.NoAction;
     }
 
-    /* Method 2: Evaluate trend based on the list of averages we have on the most recent 6 instances of historical data */
+    /* Method 2: Evaluate trend based on the list of averages we have on the most recent 6 instances of historical data
+        * Trend is evaluated by finding the difference between the averages within a list and then adding up the differences
+     */
     public double evaluateTrendUsingMWAList(List<Double> listOfAverages) {
         double sumOfDifferences = 0;
 

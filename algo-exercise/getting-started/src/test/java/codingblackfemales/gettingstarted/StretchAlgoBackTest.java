@@ -57,14 +57,14 @@ public class StretchAlgoBackTest extends AbstractAlgoBackTest {
         assertEquals(3, container.getState().getChildOrders().size());
         assertEquals(3, container.getState().getActiveChildOrders().size());
 
-        /* 3. Check orders are filled when the right opportunity presents itself */
+        /* 4. Check orders are filled when the right opportunity presents itself */
         send(createTickFillBUYOrders());
         //Check things like filled quantity, cancelled order count etc....
         long filledQuantity = container.getState().getChildOrders().stream().map(ChildOrder::getFilledQuantity).reduce(Long::sum).orElse(0L);
         //and: check that our algo state was updated to reflect our fills when the market data
         assertEquals(300, filledQuantity);
 
-        // 4. test these ALL ACTIVE orders are cancelled if the market closes
+        // 5. test these ALL ACTIVE orders are cancelled if the market closes
         when(marketStatus.isMarketOpen()).thenReturn(false);
         assertFalse(logicInstance.isMarketOpen()); // check market is closed
         send(createTickBUYLow());
@@ -110,7 +110,7 @@ public class StretchAlgoBackTest extends AbstractAlgoBackTest {
         //and: check that our algo state was updated to reflect our fills when the market data
         assertEquals(0, filledQuantity); // not filling SELL orders now to test cancellation of orders on the market
 
-        // 4. test these ALL ACTIVE orders are cancelled if the market closes as they have not been filled by end of day
+        // 5. test these ALL ACTIVE orders are cancelled if the market closes as they have not been filled by end of day
         when(marketStatus.isMarketOpen()).thenReturn(false);
         assertFalse(logicInstance.isMarketOpen()); // check market is closed
         send(createTickSELLHigh());
@@ -120,7 +120,7 @@ public class StretchAlgoBackTest extends AbstractAlgoBackTest {
 
 
         // 6. Profit made after BUYING at 96 as per testBUYCondition, the profit is:
-        System.out.println("Profit made is: " + (expectedAskPrice - 96));
+        System.out.println("Profit made is: " + (expectedAskPrice - 94));
     }
 
 
