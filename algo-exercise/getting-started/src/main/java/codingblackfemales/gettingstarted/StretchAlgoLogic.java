@@ -13,6 +13,8 @@ import codingblackfemales.util.Util;
 import messages.order.Side;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.ArrayList;
 
@@ -38,20 +40,24 @@ import java.util.ArrayList;
 public class StretchAlgoLogic implements AlgoLogic {
     private final List<Double> bidAverages = new ArrayList<>();
     private final List<Double> askAverages = new ArrayList<>();
+    private ZonedDateTime currentTime;
+    private String marketIdentifierCode;
 
     private static final Logger logger = LoggerFactory.getLogger(StretchAlgoLogic.class);
-    private final MarketStatus marketStatus;
     private final MovingWeightAverageCalculator mwaCalculator ;
     private final OrderBookService orderBookService;
+    private final MarketStatusByMIC marketStatusByMIC;
 
-    public StretchAlgoLogic(MarketStatus marketStatus, OrderBookService orderBookService, MovingWeightAverageCalculator mwaCalculator) {
+    public StretchAlgoLogic(MarketStatusByMIC marketStatusByMIC, OrderBookService orderBookService, MovingWeightAverageCalculator mwaCalculator, ZonedDateTime currentTime, String marketIdentifierCode) {
         this.orderBookService = orderBookService;
-        this.marketStatus = marketStatus;
+        this.marketStatusByMIC = marketStatusByMIC;
         this.mwaCalculator = mwaCalculator;
+        this.currentTime = currentTime;
+        this.marketIdentifierCode = marketIdentifierCode;
     }
 
-    public boolean isMarketOpen(){
-        return marketStatus.isMarketOpen();
+    public MarketStatusByMIC.MARKET_PHASES getMarketPhase(){
+        return marketStatusByMIC.getMarketPhase(currentTime, marketIdentifierCode);
     }
 
     final int MINIMUM_ORDER_BOOKS = 6; //
@@ -72,14 +78,14 @@ public class StretchAlgoLogic implements AlgoLogic {
         List<ChildOrder> activeChildOrders = state.getActiveChildOrders(); // list of all child orders (active and non-active)
 
         /* Exit Condition 1: If Market is closed before logic is triggered - don't return any action */
-        if(!marketStatus.isMarketOpen() && allChildOrders.isEmpty()) {
+        if(marketStatusByMIC.getMarketPhase(currentTime, marketIdentifierCode) != MarketStatusByMIC.MARKET_PHASES.CLOSED  && allChildOrders.isEmpty()) {
             logger.info("[STRETCH-ALGO] No orders on the market & Market is CLOSED, Not placing new orders ");
             return NoAction.NoAction;
         }
 
         /* Exit Condition 2: If orders are not filled by end of day --> CANCEL them */
         List<ChildOrder> ordersToCancel = activeChildOrders.stream().filter(childOrder -> childOrder.getFilledQuantity() == 0).toList();
-        if (!marketStatus.isMarketOpen() && !ordersToCancel.isEmpty()){
+        if (marketStatusByMIC.getMarketPhase(currentTime, marketIdentifierCode) != MarketStatusByMIC.MARKET_PHASES.CLOSED && !ordersToCancel.isEmpty()){
             for (ChildOrder orderToCancel: ordersToCancel){
                 logger.info("[STRETCH-ALGO] The market is closed. Cancelling day order ID: {} on side: {}", orderToCancel.getOrderId(), orderToCancel.getSide());
                 return new CancelChildOrder(orderToCancel);

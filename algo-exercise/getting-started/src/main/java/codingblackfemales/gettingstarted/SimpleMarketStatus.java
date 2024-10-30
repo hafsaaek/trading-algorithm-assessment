@@ -2,6 +2,9 @@ package codingblackfemales.gettingstarted;
 
 import java.time.*;
 
+import java.time.LocalTime;
+import java.time.ZoneId;
+
 /*** in exit method:
  * MarketStatus marketStatus = new SimpleMarketStatus();
  * StretchAlgoLogic stretchAlgoLogic = new StretchAlgoLogic(marketStatus, new OrderBookService(), new MovingWeightAverageCalculator())
