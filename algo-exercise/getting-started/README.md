@@ -20,6 +20,7 @@
    3.3. [Iteration 3: StretchAlgoLogic](#iteration-3-stretchalgologic)  
    - [Ensuring Clean, Modular Code using SOLID Principles](#ensuring-clean-modular-code-using-solid-principles)  
    - [Test for Iteration 3](#test-for-iteration-3)
+4.  [Future Iterations](#future-iterations)
 
 ## Project Objectives
 #### 1. **Basic Objective**
@@ -114,13 +115,21 @@ Orders that are not filled are cancelled by the end of the day or if the market 
 #### Ensuring Clean, Modular Code through the use of SOLID principles
 The logic has been designed to implement SOLID principles, such as Loose Coupled Code and Single Responsibility Principle. The following responsibilities have been separated:
 
-1. **MarketStatus**: Determines if the market is OPEN or CLOSED for cancellation logic.
-2. **OrderBookService**: Retrieves bid and ask orders in a list to evaluate the market trend for each side.
-3. **MovingWeightAverageCalculator**: Calculates the moving weight average of a given list of market orders.
-4. **StretchAlgoLogic**: Determines the trend using a list of moving weight averages for each side of the OrderBook, creates new orders (BUY/SELL), cancels orders after the market is closed, and returns the appropriate action.
+1. **MarketStatus**: Interface for determining if the market is OPEN or CLOSED, used to mock in algorithm tests.
+2. **SimpleMarketStatus**: An implementation of the MarketStatus Interface to determine if the market is OPEN or CLOSED for the purpose of deciding when to create or cancel orders.
+3. **OrderBookService**: Retrieves bid and ask orders in a list to evaluate the market trend for each side.
+4. **MovingWeightAverageCalculator**: Calculates the moving weight average of a given list of market orders.
+5. **StretchAlgoLogic**: Determines the trend using a list of moving weight averages for each side of the OrderBook, creates new orders (BUY/SELL), cancels orders after the market is closed, and returns the appropriate action.
 
 #### Test for iteration 3:
 1. [StretchAlgoBackTest.java](https://github.com/hafsaaek/trading-algorithm-assessment/blob/orderbook-fix/algo-exercise/getting-started/src/test/java/codingblackfemales/gettingstarted/StretchAlgoBackTest.java)
 2. [StretchAlgoTest.java](https://github.com/hafsaaek/trading-algorithm-assessment/blob/orderbook-fix/algo-exercise/getting-started/src/test/java/codingblackfemales/gettingstarted/StretchAlgoTest.java)
 3. [MovingWeightAverageCalculatorTest.java](https://github.com/hafsaaek/trading-algorithm-assessment/blob/main/algo-exercise/getting-started/src/test/java/codingblackfemales/gettingstarted/MovingWeightAverageCalculatorTest.java)
 4. [SimpleMarketStatus.java](https://github.com/hafsaaek/trading-algorithm-assessment/blob/main/algo-exercise/getting-started/src/test/java/codingblackfemales/gettingstarted/SimpleMarketStatusTest.java)
+
+## Future Iterations
+In future iterations, I would:
+1. Implement a Market Status Registry that tracks detailed market phases (represented as enums) for each market with a map of various phases (e.g., OPEN_AUCTION, CONTINUOUS_TRADING, CLOSE_AUCTION)
+2. Determine market status by passing a MIC (market identifier code) and the current time to the registry, allowing more granular control over each market's phase.
+
+This was attempted in the inject-time-provider branch, see [this branch](https://github.com/hafsaaek/trading-algorithm-assessment/tree/inject-time-provider/algo-exercise/getting-started) for further context
