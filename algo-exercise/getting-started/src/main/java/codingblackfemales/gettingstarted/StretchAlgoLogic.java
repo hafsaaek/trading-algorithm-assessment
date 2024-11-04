@@ -46,19 +46,21 @@ public class StretchAlgoLogic implements AlgoLogic {
     private static final Logger logger = LoggerFactory.getLogger(StretchAlgoLogic.class);
     private final MovingWeightAverageCalculator mwaCalculator ;
     private final OrderBookService orderBookService;
-    private final MarketStatusByMIC marketStatusByMIC;
+//    private final MarketStatusByMIC marketStatusByMIC;
+    private final MarketStatusRegistry marketStatusRegistry;
 
-    public StretchAlgoLogic(MarketStatusByMIC marketStatusByMIC, OrderBookService orderBookService, MovingWeightAverageCalculator mwaCalculator, ZonedDateTime currentTime, String marketIdentifierCode) {
+    public StretchAlgoLogic(MarketStatusRegistry marketStatusRegistry, OrderBookService orderBookService, MovingWeightAverageCalculator mwaCalculator, ZonedDateTime currentTime, String marketIdentifierCode) {
         this.orderBookService = orderBookService;
-        this.marketStatusByMIC = marketStatusByMIC;
+        this.marketStatusRegistry = marketStatusRegistry;
         this.mwaCalculator = mwaCalculator;
         this.currentTime = currentTime;
         this.marketIdentifierCode = marketIdentifierCode;
     }
 
-    public MarketStatusByMIC.MARKET_PHASES getMarketPhase(){
-        return marketStatusByMIC.getMarketPhase(currentTime, marketIdentifierCode);
-    }
+//    public MARKET_PHASES getMarketPhase(){
+//        return marketStatusByMIC.getMarketPhase(currentTime, marketIdentifierCode);
+//    }
+
 
     final int MINIMUM_ORDER_BOOKS = 6; //
     final int MAX_CHILD_ORDERS = 3;
@@ -78,14 +80,15 @@ public class StretchAlgoLogic implements AlgoLogic {
         List<ChildOrder> activeChildOrders = state.getActiveChildOrders(); // list of all child orders (active and non-active)
 
         /* Exit Condition 1: If Market is closed before logic is triggered - don't return any action */
-        if(marketStatusByMIC.getMarketPhase(currentTime, marketIdentifierCode) != MarketStatusByMIC.MARKET_PHASES.CLOSED  && allChildOrders.isEmpty()) {
+        var marketStatus = marketStatusRegistry.getByMIC(marketIdentifierCode);
+        if(marketStatus.getMarketPhase(currentTime) == MARKET_PHASES.CLOSED  && allChildOrders.isEmpty()) {
             logger.info("[STRETCH-ALGO] No orders on the market & Market is CLOSED, Not placing new orders ");
             return NoAction.NoAction;
         }
 
         /* Exit Condition 2: If orders are not filled by end of day --> CANCEL them */
         List<ChildOrder> ordersToCancel = activeChildOrders.stream().filter(childOrder -> childOrder.getFilledQuantity() == 0).toList();
-        if (marketStatusByMIC.getMarketPhase(currentTime, marketIdentifierCode) != MarketStatusByMIC.MARKET_PHASES.CLOSED && !ordersToCancel.isEmpty()){
+        if (marketStatus.getMarketPhase(currentTime) == MARKET_PHASES.CLOSED && !ordersToCancel.isEmpty()){
             for (ChildOrder orderToCancel: ordersToCancel){
                 logger.info("[STRETCH-ALGO] The market is closed. Cancelling day order ID: {} on side: {}", orderToCancel.getOrderId(), orderToCancel.getSide());
                 return new CancelChildOrder(orderToCancel);

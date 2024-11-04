@@ -7,22 +7,29 @@ import java.util.List;
 
 public class SimpleMarketStatusByMIC implements MarketStatusByMIC {
 
-    private final HashMap<String, List<ZonedDateTime>> MIC = new HashMap<>();
+    /* initialise the map and call the populating method inside the contractor so the method doesn't return a null map when invoked */
+    private final HashMap<String, List<ZonedDateTime>> MIC;
 
+    public SimpleMarketStatusByMIC() {
+        MIC = new HashMap<>();
+        getMICMap();
+    }
+
+    // api real time trading hours: https://eodhd.com/financial-apis/exchanges-api-trading-hours-and-stock-market-holidays
 
     @Override
     public MARKET_PHASES getMarketPhase(ZonedDateTime currentTime, String marketIdentifierCode) {
-        ZonedDateTime MARKET_OPEN_TIME = getMICMap().get(marketIdentifierCode).get(0);
-        ZonedDateTime MARKET_CLOSE_TIME = getMICMap().get(marketIdentifierCode).get(1);
-        ZonedDateTime MARKET_OPEN_AUCTION_TIME = getMICMap().get(marketIdentifierCode).stream().count() > 2? getMICMap().get(marketIdentifierCode).get(2) : null;
-        ZonedDateTime MARKET_CLOSE_AUCTION_TIME = getMICMap().get(marketIdentifierCode).stream().count() > 2? getMICMap().get(marketIdentifierCode).get(3) : null;;
+        ZonedDateTime MARKET_OPEN_TIME = MIC.get(marketIdentifierCode).get(0);
+        ZonedDateTime MARKET_CLOSE_TIME = MIC.get(marketIdentifierCode).get(1);
+        ZonedDateTime MARKET_OPEN_AUCTION_TIME = (long) MIC.get(marketIdentifierCode).size() > 2? MIC.get(marketIdentifierCode).get(2) : null;
+        ZonedDateTime MARKET_CLOSE_AUCTION_TIME = (long) MIC.get(marketIdentifierCode).size() > 2? MIC.get(marketIdentifierCode).get(3) : null;
 
         DayOfWeek dayOfWeek = currentTime.getDayOfWeek();
         if (dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY) {
             return MARKET_PHASES.CLOSED;
         }
 
-        if( MARKET_OPEN_AUCTION_TIME != null && currentTime.isAfter(MARKET_OPEN_AUCTION_TIME) && currentTime.isBefore(MARKET_OPEN_TIME)){
+        if(MARKET_OPEN_AUCTION_TIME != null && currentTime.isAfter(MARKET_OPEN_AUCTION_TIME) && currentTime.isBefore(MARKET_OPEN_TIME)){
             return MARKET_PHASES.OPEN_AUCTION;
         } else if (MARKET_CLOSE_AUCTION_TIME != null && currentTime.isAfter(MARKET_OPEN_TIME) && currentTime.isBefore(MARKET_CLOSE_AUCTION_TIME)) {
             return MARKET_PHASES.OPEN;
@@ -33,7 +40,7 @@ public class SimpleMarketStatusByMIC implements MarketStatusByMIC {
         }
     }
 
-    public HashMap<String, List<ZonedDateTime>> getMICMap() {
+    public void getMICMap() {
 
         LocalDate today = LocalDate.now();
 
@@ -66,7 +73,7 @@ public class SimpleMarketStatusByMIC implements MarketStatusByMIC {
         MIC.put("XSAU", Arrays.asList(XSAU_OPEN_TIME, XSAU_CLOSE_TIME));
         MIC.put("XASX", Arrays.asList(XASX_OPEN_TIME, XASX_CLOSE_TIME));
 
-        return MIC;
+//        return MIC;
     }
 
 
@@ -74,9 +81,17 @@ public class SimpleMarketStatusByMIC implements MarketStatusByMIC {
         // 1. Pass current time to method that return sif market is open or closed DONE
         // 2. returning phases of the market: you might need to add CLOSING AUCTION,OPENING AUCTION & OPEN& CLOSE TIMES DONE
         // 3. a problem arises when RETURNING market phases for different markets e.g., saudi is open sun-thurs not mon-fri like the others
-        // 4. Perhaps
+        // 4. Perhaps use a JSON file for market open/close data & parse the dates in another class?
 
-
+    // Notes from Mentor meetings 31 Oct:
+    // a boolean that returns canITrade depending on the market phase? not imp right now
+    // don't need to use ZoneDateTime - use only time - don't pass today
+    // a market status object that has the phases and its respective dates & holidays - include as many non trading hours as possible
+        // you don't want to expose all these arrays - hide the details and abstract as much as you can, think of it like the logic does not need to be exposed to all the market data
+    // 2 interfaces: 1 as a table of market status almost liek a registry given a market code and the other returns the phase given the time
+    // the logic ultimately wnats if the market is open or not so the phase,
+    // a way of indexing, given a time, is it in that range
+    // if we can't get the market phase - DON'T TRADE
 
 
     // Notes from Mentor meetings 24 Oct

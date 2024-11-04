@@ -1,7 +1,5 @@
 package codingblackfemales.gettingstarted;
 
-import codingblackfemales.action.Action;
-import codingblackfemales.action.NoAction;
 import codingblackfemales.algo.AlgoLogic;
 import codingblackfemales.sotw.ChildOrder;
 import org.junit.jupiter.api.Test;
@@ -10,17 +8,17 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 
 import static org.junit.Assert.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 
 public class StretchAlgoBackTest extends AbstractAlgoBackTest {
-    private MarketStatusByMIC marketStatusByMIC;
+//    private MarketStatusByMIC marketStatusByMIC;
+    private MarketStatus marketStatus;
+    private MarketStatusRegistry marketStatusRegistry;
     private StretchAlgoLogic logicInstance;
     LocalDate today = LocalDate.now();
     ZonedDateTime currentTime = ZonedDateTime.now();
@@ -28,11 +26,13 @@ public class StretchAlgoBackTest extends AbstractAlgoBackTest {
 
     @Override
     public AlgoLogic createAlgoLogic() {
-//        marketStatus = mock(MarketStatus.class);
-        marketStatusByMIC = mock(MarketStatusByMIC.class);
-        MarketStatusByMIC marketStatusByMIC = new SimpleMarketStatusByMIC();
+        marketStatus = mock(MarketStatus.class);
+        marketStatusRegistry = mock(MarketStatusRegistry.class);
+//        MarketStatusByMIC marketStatusByMIC = new SimpleMarketStatusByMIC();
         ZonedDateTime currentTime = ZonedDateTime.now();
-        logicInstance = new StretchAlgoLogic(marketStatusByMIC, new OrderBookService(), new MovingWeightAverageCalculator(), currentTime,  marketIdentifierCode);
+        String marketIdentifierCode = "XLON";
+
+        logicInstance = new StretchAlgoLogic(marketStatusRegistry, new OrderBookService(), new MovingWeightAverageCalculator(), currentTime,  marketIdentifierCode);
         return logicInstance;
     }
 
@@ -43,9 +43,10 @@ public class StretchAlgoBackTest extends AbstractAlgoBackTest {
         assertTrue(container.getState().getChildOrders().isEmpty());
 
         /* 2. Test that if the market is forced Open and enough data is collected on market trends to BUY LOW, 3 BUY orders are created */
-//        ZonedDateTime currentTime = ZonedDateTime.of(today, LocalTime.of(8, 59, 0), ZoneId.of("Europe/London"));
+        ZonedDateTime timeNow = ZonedDateTime.of(today, LocalTime.of(8, 59, 0), ZoneId.of("Europe/London"));
 
-        when(marketStatusByMIC.getMarketPhase(currentTime, "XLON")).thenReturn(MarketStatusByMIC.MARKET_PHASES.OPEN);
+        when(marketStatusRegistry.getByMIC("XLON")).thenReturn(marketStatus);
+        when(marketStatus.getMarketPhase(any())).thenReturn(MARKET_PHASES.OPEN); // will return x given ANY input
         send(createTick0());
         send(createTick0());
         send(createTick0());
@@ -79,9 +80,9 @@ public class StretchAlgoBackTest extends AbstractAlgoBackTest {
 
         // 5. test these ALL ACTIVE orders are cancelled if the market closes
         currentTime = ZonedDateTime.of(today, LocalTime.of(18, 59, 0), ZoneId.of("Europe/London"));
-        when(marketStatusByMIC.getMarketPhase(currentTime, "XLON")).thenReturn(MarketStatusByMIC.MARKET_PHASES.CLOSED);
-
-        assertEquals(MarketStatusByMIC.MARKET_PHASES.CLOSED, logicInstance.getMarketPhase()); // check market is closed
+        when(marketStatusRegistry.getByMIC("XLON")).thenReturn(marketStatus);
+        when(marketStatus.getMarketPhase(any())).thenReturn(MARKET_PHASES.CLOSED);
+//        assertEquals(MARKET_PHASES.CLOSED, logicInstance.getMarketPhase()); // check market is closed
         send(createTickBUYLow());
         /* Assert there are still 3 active orders after market closes */
         assertEquals(3, container.getState().getActiveChildOrders().size());

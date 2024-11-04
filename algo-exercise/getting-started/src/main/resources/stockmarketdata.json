@@ -1,0 +1,30 @@
+{
+  "markets": {
+    "XLON": {
+      "timezone": "Europe/London",
+      "openTime": "08:00",
+      "closeTime": "16:35",
+      "openAuctionTime": "07:50",
+      "closeAuctionTime": "16:30",
+      "daysOpen": ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"]
+    },
+    "XNYS": {
+      "timezone": "America/New_York",
+      "openTime": "09:30",
+      "closeTime": "16:00",
+      "daysOpen": ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"]
+    },
+    "XHKG": {
+      "timezone": "Asia/Hong_Kong",
+      "openTime": "09:30",
+      "closeTime": "16:00",
+      "daysOpen": ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"]
+    },
+    "XASX": {
+      "timezone": "Australia/Sydney",
+      "openTime": "10:00",
+      "closeTime": "16:00",
+      "daysOpen": ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"]
+    }
+  }
+}
